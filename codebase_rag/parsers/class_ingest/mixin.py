@@ -35,6 +35,7 @@ class ClassIngestMixin:
     ingestor: IngestorProtocol
     repo_path: Path
     project_name: str
+    project_id: str
     function_registry: FunctionRegistryTrieProtocol
     simple_name_lookup: SimpleNameLookup
     module_qn_to_file_path: dict[str, Path]
@@ -61,7 +62,7 @@ class ClassIngestMixin:
             module_qn,
             file_path,
             self.repo_path,
-            self.project_name,
+            self.project_id,
             self.ingestor,
         )
 
@@ -125,7 +126,7 @@ class ClassIngestMixin:
             lang_config,
             file_path,
             self.repo_path,
-            self.project_name,
+            self.project_id,
         )
         if not identity:
             return
@@ -141,6 +142,7 @@ class ClassIngestMixin:
             cs.KEY_END_LINE: class_node.end_point[0] + 1,
             cs.KEY_DOCSTRING: self._get_docstring(class_node),
             cs.KEY_IS_EXPORTED: is_exported,
+            cs.KEY_PROJECT_ID: self.project_id,
         }
         self.ingestor.ensure_node_batch(node_type, class_props)
         self.function_registry[class_qn] = node_type
@@ -192,6 +194,7 @@ class ClassIngestMixin:
                     self.simple_name_lookup,
                     self._get_docstring,
                     language,
+                    project_id=self.project_id,
                 )
 
     def _ingest_class_methods(
@@ -233,6 +236,7 @@ class ClassIngestMixin:
                 language,
                 self._extract_decorators,
                 method_qualified_name,
+                project_id=self.project_id,
             )
 
     def _process_inline_modules(
@@ -258,7 +262,8 @@ class ClassIngestMixin:
             module_props: PropertyDict = {
                 cs.KEY_QUALIFIED_NAME: inline_module_qn,
                 cs.KEY_NAME: module_name,
-                cs.KEY_PATH: f"{cs.INLINE_MODULE_PATH_PREFIX}{module_name}",
+                cs.KEY_PATH: f"{self.project_id}:{cs.INLINE_MODULE_PATH_PREFIX}{module_name}",
+                cs.KEY_PROJECT_ID: self.project_id,
             }
             logger.info(
                 logs.CLASS_FOUND_INLINE_MODULE.format(

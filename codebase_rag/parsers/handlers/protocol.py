@@ -26,7 +26,7 @@ class LanguageHandler(Protocol):
         lang_config: LanguageSpec | None,
         file_path: Path | None,
         repo_path: Path,
-        project_name: str,
+        project_id: str,
     ) -> str: ...
 
     def is_function_exported(self, node: ASTNode) -> bool: ...

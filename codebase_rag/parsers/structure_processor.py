@@ -14,11 +14,13 @@ class StructureProcessor:
         ingestor: IngestorProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         queries: dict[cs.SupportedLanguage, LanguageQueries],
     ):
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.queries = queries
         self.structural_elements: dict[Path, str | None] = {}
         self.ignore_dirs = cs.IGNORE_PATTERNS
@@ -27,10 +29,10 @@ class StructureProcessor:
         self, parent_rel_path: Path, parent_container_qn: str | None
     ) -> NodeIdentifier:
         if parent_rel_path == Path(cs.PATH_CURRENT_DIR):
-            return (cs.NodeLabel.PROJECT, cs.KEY_NAME, self.project_name)
+            return (cs.NodeLabel.PROJECT, cs.KEY_PROJECT_ID, self.project_id)
         if parent_container_qn:
             return (cs.NodeLabel.PACKAGE, cs.KEY_QUALIFIED_NAME, parent_container_qn)
-        return (cs.NodeLabel.FOLDER, cs.KEY_PATH, str(parent_rel_path))
+        return (cs.NodeLabel.FOLDER, cs.KEY_PATH, f"{self.project_id}:{parent_rel_path}")
 
     def identify_structure(self) -> None:
         directories = {self.repo_path}
@@ -61,7 +63,7 @@ class StructureProcessor:
 
             if is_package:
                 package_qn = cs.SEPARATOR_DOT.join(
-                    [self.project_name] + list(relative_root.parts)
+                    [self.project_id] + list(relative_root.parts)
                 )
                 self.structural_elements[relative_root] = package_qn
                 logger.info(
@@ -73,6 +75,7 @@ class StructureProcessor:
                         cs.KEY_QUALIFIED_NAME: package_qn,
                         cs.KEY_NAME: root.name,
                         cs.KEY_PATH: str(relative_root),
+                        cs.KEY_PROJECT_ID: self.project_id,
                     },
                 )
                 parent_identifier = self._get_parent_identifier(
@@ -85,12 +88,17 @@ class StructureProcessor:
                 )
             elif root != self.repo_path:
                 self.structural_elements[relative_root] = None
+                folder_path = f"{self.project_id}:{relative_root}"
                 logger.info(
                     logs.STRUCT_IDENTIFIED_FOLDER.format(relative_root=relative_root)
                 )
                 self.ingestor.ensure_node_batch(
                     cs.NodeLabel.FOLDER,
-                    {cs.KEY_PATH: str(relative_root), cs.KEY_NAME: root.name},
+                    {
+                        cs.KEY_PATH: folder_path,
+                        cs.KEY_NAME: root.name,
+                        cs.KEY_PROJECT_ID: self.project_id,
+                    },
                 )
                 parent_identifier = self._get_parent_identifier(
                     parent_rel_path, parent_container_qn
@@ -98,11 +106,12 @@ class StructureProcessor:
                 self.ingestor.ensure_relationship_batch(
                     parent_identifier,
                     cs.RelationshipType.CONTAINS_FOLDER,
-                    (cs.NodeLabel.FOLDER, cs.KEY_PATH, str(relative_root)),
+                    (cs.NodeLabel.FOLDER, cs.KEY_PATH, folder_path),
                 )
 
     def process_generic_file(self, file_path: Path, file_name: str) -> None:
         relative_filepath = str(file_path.relative_to(self.repo_path))
+        file_unique_path = f"{self.project_id}:{relative_filepath}"
         relative_root = file_path.parent.relative_to(self.repo_path)
 
         parent_container_qn = self.structural_elements.get(relative_root)
@@ -113,14 +122,15 @@ class StructureProcessor:
         self.ingestor.ensure_node_batch(
             cs.NodeLabel.FILE,
             {
-                cs.KEY_PATH: relative_filepath,
+                cs.KEY_PATH: file_unique_path,
                 cs.KEY_NAME: file_name,
                 cs.KEY_EXTENSION: file_path.suffix,
+                cs.KEY_PROJECT_ID: self.project_id,
             },
         )
 
         self.ingestor.ensure_relationship_batch(
             parent_identifier,
             cs.RelationshipType.CONTAINS_FILE,
-            (cs.NodeLabel.FILE, cs.KEY_PATH, relative_filepath),
+            (cs.NodeLabel.FILE, cs.KEY_PATH, file_unique_path),
         )

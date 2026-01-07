@@ -16,11 +16,13 @@ class JsTypeInferenceEngine:
         import_processor: ImportProcessor,
         function_registry: FunctionRegistryTrieProtocol,
         project_name: str,
+        project_id: str,
         find_method_ast_node_func: Callable[[str], ASTNode | None],
     ):
         self.import_processor = import_processor
         self.function_registry = function_registry
         self.project_name = project_name
+        self.project_id = project_id
         self._find_method_ast_node = find_method_ast_node_func
 
     def build_local_variable_type_map(

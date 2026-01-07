@@ -35,6 +35,9 @@ def start(
     repo_path: str | None = typer.Option(
         None, "--repo-path", help=ch.HELP_REPO_PATH_RETRIEVAL
     ),
+    project_id: str | None = typer.Option(
+        None, "--project-id", help="Unique identifier for the project graph"
+    ),
     update_graph: bool = typer.Option(
         False,
         "--update-graph",
@@ -74,6 +77,9 @@ def start(
     ),
 ) -> None:
     app_context.session.confirm_edits = not no_confirm
+
+    if project_id:
+        settings.TARGET_PROJECT_ID = project_id
 
     target_repo_path = repo_path or settings.TARGET_REPO_PATH
 
@@ -131,6 +137,9 @@ def index(
     repo_path: str | None = typer.Option(
         None, "--repo-path", help=ch.HELP_REPO_PATH_INDEX
     ),
+    project_id: str | None = typer.Option(
+        None, "--project-id", help="Unique identifier for the project graph"
+    ),
     output_proto_dir: str = typer.Option(
         ...,
         "-o",
@@ -143,6 +152,9 @@ def index(
         help=ch.HELP_SPLIT_INDEX,
     ),
 ) -> None:
+    if project_id:
+        settings.TARGET_PROJECT_ID = project_id
+
     target_repo_path = repo_path or settings.TARGET_REPO_PATH
     repo_to_index = Path(target_repo_path)
 
@@ -215,6 +227,9 @@ def optimize(
     repo_path: str | None = typer.Option(
         None, "--repo-path", help=ch.HELP_REPO_PATH_OPTIMIZE
     ),
+    project_id: str | None = typer.Option(
+        None, "--project-id", help="Unique identifier for the project graph"
+    ),
     reference_document: str | None = typer.Option(
         None,
         "--reference-document",
@@ -243,6 +258,9 @@ def optimize(
     ),
 ) -> None:
     app_context.session.confirm_edits = not no_confirm
+
+    if project_id:
+        settings.TARGET_PROJECT_ID = project_id
 
     target_repo_path = repo_path or settings.TARGET_REPO_PATH
 

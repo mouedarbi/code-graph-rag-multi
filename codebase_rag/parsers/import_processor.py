@@ -27,11 +27,13 @@ class ImportProcessor:
         self,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         ingestor: IngestorProtocol | None = None,
         function_registry: FunctionRegistryTrieProtocol | None = None,
     ) -> None:
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.ingestor = ingestor
         self.function_registry = function_registry
         self.import_mapping: dict[str, dict[str, str]] = {}
@@ -176,7 +178,7 @@ class ImportProcessor:
 
     def _resolve_import_full_name(self, module_name: str, top_level: str) -> str:
         if self._is_local_module(top_level):
-            return f"{self.project_name}{cs.SEPARATOR_DOT}{module_name}"
+            return f"{self.project_id}{cs.SEPARATOR_DOT}{module_name}"
         return module_name
 
     def _is_local_module(self, module_name: str) -> bool:
@@ -243,7 +245,7 @@ class ImportProcessor:
         return None
 
     def _resolve_python_base_module(self, module_name: str) -> str:
-        if module_name.startswith(self.project_name):
+        if module_name.startswith(self.project_id):
             return module_name
         top_level = module_name.split(cs.SEPARATOR_DOT)[0]
         return self._resolve_import_full_name(module_name, top_level)
@@ -580,7 +582,7 @@ class ImportProcessor:
                     .replace(cs.EXT_H, "")
                     .replace(cs.EXT_HPP, "")
                 )
-                full_name = f"{self.project_name}{cs.SEPARATOR_DOT}{path_parts}"
+                full_name = f"{self.project_id}{cs.SEPARATOR_DOT}{path_parts}"
 
             self.import_mapping[module_qn][local_name] = full_name
             logger.debug(
@@ -646,7 +648,7 @@ class ImportProcessor:
             if colon_pos != -1:
                 if partition_part := decl_text[colon_pos + 1 :].split(";")[0].strip():
                     partition_name = f"{cs.CPP_PARTITION_PREFIX}{partition_part}"
-                    full_name = f"{self.project_name}{cs.SEPARATOR_DOT}{partition_part}"
+                    full_name = f"{self.project_id}{cs.SEPARATOR_DOT}{partition_part}"
                     self.import_mapping[module_qn][partition_name] = full_name
                     logger.debug(
                         ls.IMP_CPP_PARTITION.format(
@@ -659,7 +661,7 @@ class ImportProcessor:
     ) -> None:
         module_name = parts[name_index].rstrip(";")
         self.import_mapping[module_qn][module_name] = (
-            f"{self.project_name}{cs.SEPARATOR_DOT}{module_name}"
+            f"{self.project_id}{cs.SEPARATOR_DOT}{module_name}"
         )
         logger.debug(log_template.format(name=module_name))
 
@@ -787,9 +789,9 @@ class ImportProcessor:
                 dotted.replace(cs.SEPARATOR_DOT, cs.SEPARATOR_SLASH) + cs.EXT_LUA
             )
             if (self.repo_path / relative_file).is_file():
-                return f"{self.project_name}{cs.SEPARATOR_DOT}{dotted}"
+                return f"{self.project_id}{cs.SEPARATOR_DOT}{dotted}"
             if (self.repo_path / f"{dotted}{cs.EXT_LUA}").is_file():
-                return f"{self.project_name}{cs.SEPARATOR_DOT}{dotted}"
+                return f"{self.project_id}{cs.SEPARATOR_DOT}{dotted}"
         except OSError:
             pass
 

@@ -25,6 +25,7 @@ class TypeInferenceEngine:
         function_registry: FunctionRegistryTrieProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         ast_cache: "ASTCacheProtocol",
         queries: dict[cs.SupportedLanguage, LanguageQueries],
         module_qn_to_file_path: dict[str, Path],
@@ -35,6 +36,7 @@ class TypeInferenceEngine:
         self.function_registry = function_registry
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.ast_cache = ast_cache
         self.queries = queries
         self.module_qn_to_file_path = module_qn_to_file_path
@@ -54,6 +56,7 @@ class TypeInferenceEngine:
                 function_registry=self.function_registry,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 ast_cache=self.ast_cache,
                 queries=self.queries,
                 module_qn_to_file_path=self.module_qn_to_file_path,
@@ -69,6 +72,7 @@ class TypeInferenceEngine:
                 import_processor=self.import_processor,
                 function_registry=self.function_registry,
                 project_name=self.project_name,
+                project_id=self.project_id,
             )
         return self._lua_type_inference
 
@@ -79,6 +83,7 @@ class TypeInferenceEngine:
                 import_processor=self.import_processor,
                 function_registry=self.function_registry,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 find_method_ast_node_func=self.python_type_inference._find_method_ast_node,
             )
         return self._js_type_inference
@@ -91,6 +96,7 @@ class TypeInferenceEngine:
                 function_registry=self.function_registry,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 ast_cache=self.ast_cache,
                 queries=self.queries,
                 module_qn_to_file_path=self.module_qn_to_file_path,

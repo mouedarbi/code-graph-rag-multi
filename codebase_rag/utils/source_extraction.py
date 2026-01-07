@@ -68,7 +68,10 @@ def validate_source_location(
         return False, None
 
     try:
-        path_obj = Path(str(file_path))
+        path_str = str(file_path)
+        if ":" in path_str:
+            path_str = path_str.split(":", 1)[1]
+        path_obj = Path(path_str)
         return True, path_obj
     except Exception:
         return False, None

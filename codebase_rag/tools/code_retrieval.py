@@ -40,6 +40,9 @@ class CodeRetriever:
 
             res = results[0]
             file_path_str = res.get("path")
+            if file_path_str and ":" in file_path_str:
+                file_path_str = file_path_str.split(":", 1)[1]
+
             start_line = res.get("start")
             end_line = res.get("end")
 

@@ -232,6 +232,7 @@ class GraphUpdater:
         self.parsers = parsers
         self.queries = queries
         self.project_name = repo_path.name
+        self.project_id = settings.TARGET_PROJECT_ID or self.project_name
         self.simple_name_lookup: SimpleNameLookup = defaultdict(set)
         self.function_registry = FunctionRegistryTrie(
             simple_name_lookup=self.simple_name_lookup
@@ -243,6 +244,7 @@ class GraphUpdater:
             ingestor=self.ingestor,
             repo_path=self.repo_path,
             project_name=self.project_name,
+            project_id=self.project_id,
             queries=self.queries,
             function_registry=self.function_registry,
             simple_name_lookup=self.simple_name_lookup,
@@ -257,7 +259,11 @@ class GraphUpdater:
 
     def run(self) -> None:
         self.ingestor.ensure_node_batch(
-            cs.NODE_PROJECT, {cs.KEY_NAME: self.project_name}
+            cs.NODE_PROJECT, 
+            {
+                cs.KEY_NAME: self.project_name,
+                cs.KEY_PROJECT_ID: self.project_id
+            }
         )
         logger.info(ls.ENSURING_PROJECT.format(name=self.project_name))
 

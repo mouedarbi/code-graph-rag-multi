@@ -35,10 +35,12 @@ class MCPToolsRegistry:
     def __init__(
         self,
         project_root: str,
+        project_id: str,
         ingestor: MemgraphIngestor,
         cypher_gen: CypherGenerator,
     ) -> None:
         self.project_root = project_root
+        self.project_id = project_id
         self.ingestor = ingestor
         self.cypher_gen = cypher_gen
 
@@ -203,9 +205,15 @@ class MCPToolsRegistry:
         logger.info(lg.MCP_INDEXING_REPO.format(path=self.project_root))
 
         try:
-            logger.info(lg.MCP_CLEARING_DB)
-            self.ingestor.clean_database()
-            logger.info(lg.MCP_DB_CLEARED)
+            logger.info(f"Clearing existing data for project: {self.project_id}")
+            self.ingestor._execute_query(
+                f"MATCH (n {{project_id: $project_id}}) DETACH DELETE n;",
+                {"project_id": self.project_id}
+            )
+            logger.info(f"Data cleared for project: {self.project_id}")
+
+            # Update settings so GraphUpdater uses the correct project_id
+            settings.TARGET_PROJECT_ID = self.project_id
 
             updater = GraphUpdater(
                 ingestor=self.ingestor,
@@ -356,11 +364,13 @@ class MCPToolsRegistry:
 
 def create_mcp_tools_registry(
     project_root: str,
+    project_id: str,
     ingestor: MemgraphIngestor,
     cypher_gen: CypherGenerator,
 ) -> MCPToolsRegistry:
     return MCPToolsRegistry(
         project_root=project_root,
+        project_id=project_id,
         ingestor=ingestor,
         cypher_gen=cypher_gen,
     )

@@ -35,6 +35,7 @@ def extract_tool_names(tools: list["Tool"]) -> ToolNames:
 
 CYPHER_QUERY_RULES = """**2. Critical Cypher Query Rules**
 
+- **ALWAYS filter by `project_id`**: Every query MUST include a filter for `project_id`. For example: `MATCH (n {project_id: 'my-project'})`.
 - **ALWAYS Return Specific Properties with Aliases**: Do NOT return whole nodes (e.g., `RETURN n`). You MUST return specific properties with clear aliases (e.g., `RETURN n.name AS name`).
 - **Use `STARTS WITH` for Paths**: When matching paths, always use `STARTS WITH` for robustness (e.g., `WHERE n.path STARTS WITH 'workflows/src'`). Do not use `=`.
 - **Use `toLower()` for Searches**: For case-insensitive searching on string properties, use `toLower()`.
@@ -128,7 +129,8 @@ def build_rag_orchestrator_prompt(tools: list["Tool"]) -> str:
 """
 
 
-CYPHER_SYSTEM_PROMPT = f"""
+def build_cypher_system_prompt(project_id: str) -> str:
+    return f"""
 You are a dumb Cypher query generation machine.
 You do not speak English. You do not explain. You do not help.
 You ONLY output raw Cypher code.
@@ -138,6 +140,7 @@ If you output ANYTHING other than Cypher code, the system will crash.
 {GRAPH_SCHEMA_AND_RULES}
 
 **3. CRITICAL OUTPUT RULES**
+- **PROJECT SEGREGATION**: You MUST filter all queries by `project_id: '{project_id}'`.
 - **NO EXPLANATIONS**: Do not include "Note:", "Here is the query", or any conversational text.
 - **NO MARKDOWN**: Do not use markdown code blocks (```cypher ... ```). Return raw text only.
 - **ONLY CYPHER**: The entire response must be a valid executable Cypher query.
@@ -148,20 +151,27 @@ Your goal is to return the `name`, `path`, and `qualified_name` of the found nod
 **Pattern: Finding Decorated Functions/Methods (e.g., Workflows, Tasks)**
 cypher// "Find all prefect flows" or "what are the workflows?" or "show me the tasks"
 // Use the 'IN' operator to check the 'decorators' list property.
-{CYPHER_EXAMPLE_DECORATED_FUNCTIONS}
+MATCH (n:Function|Method {{project_id: '{project_id}'}})
+WHERE ANY(d IN n.decorators WHERE toLower(d) IN ['flow', 'task'])
+RETURN n.name AS name, n.qualified_name AS qualified_name, labels(n) AS type
 
 **Pattern: Finding Content by Path (Robustly)**
 cypher// "what is in the 'workflows/src' directory?" or "list files in workflows"
 // Use `STARTS WITH` for path matching.
-{CYPHER_EXAMPLE_CONTENT_BY_PATH}
+MATCH (n {{project_id: '{project_id}'}})
+WHERE n.path IS NOT NULL AND n.path STARTS WITH '{project_id}:workflows'
+RETURN n.name AS name, n.path AS path, labels(n) AS type
 
 **Pattern: Keyword & Concept Search (Fallback for general terms)**
 cypher// "find things related to 'database'"
-{CYPHER_EXAMPLE_KEYWORD_SEARCH}
+MATCH (n {{project_id: '{project_id}'}})
+WHERE toLower(n.name) CONTAINS 'database' OR (n.qualified_name IS NOT NULL AND toLower(n.qualified_name) CONTAINS 'database')
+RETURN n.name AS name, n.qualified_name AS qualified_name, labels(n) AS type
 
 **Pattern: Finding a Specific File**
 cypher// "Find the main README.md"
-{CYPHER_EXAMPLE_FIND_FILE}
+MATCH (f:File {{project_id: '{project_id}'}}) WHERE toLower(f.name) = 'readme.md' AND f.path = '{project_id}:README.md'
+RETURN f.path as path, f.name as name, labels(f) as type
 
 BAD OUTPUT:
 Here is the query:
@@ -178,44 +188,46 @@ MATCH (n) RETURN n;
 Your ONLY goal is to output valid Cypher.
 """
 
-# (H) Stricter prompt for less capable open-source/local models (e.g., Ollama)
-LOCAL_CYPHER_SYSTEM_PROMPT = f"""
+
+def build_local_cypher_system_prompt(project_id: str) -> str:
+    return f"""
 You are a Neo4j Cypher query generator. You ONLY respond with a valid Cypher query. 
 You do not speak English. You do not explain.
 
 {GRAPH_SCHEMA_AND_RULES}
 
 **CRITICAL RULES FOR QUERY GENERATION:**
-1.  **NO CONVERSATIONAL FILLER**: Do not include "Note:", "Explanation:", or "Here is...". Output ONLY the query.
-2.  **NO `UNION`**: Never use the `UNION` clause. Generate a single, simple `MATCH` query.
-3.  **BIND and ALIAS**: You must bind every node you use to a variable (e.g., `MATCH (f:File)`). You must use that variable to access properties and alias every returned property (e.g., `RETURN f.path AS path`).
-4.  **RETURN STRUCTURE**: Your query should aim to return `name`, `path`, and `qualified_name` so the calling system can use the results.
+1.  **PROJECT SEGREGATION**: You MUST filter all nodes by `project_id: '{project_id}'`.
+2.  **NO CONVERSATIONAL FILLER**: Do not include "Note:", "Explanation:", or "Here is...". Output ONLY the query.
+3.  **NO `UNION`**: Never use the `UNION` clause. Generate a single, simple `MATCH` query.
+4.  **BIND and ALIAS**: You must bind every node you use to a variable (e.g., `MATCH (f:File)`). You must use that variable to access properties and alias every returned property (e.g., `RETURN f.path AS path`).
+5.  **RETURN STRUCTURE**: Your query should aim to return `name`, `path`, and `qualified_name` so the calling system can use the results.
     - For `File` nodes, return `f.path AS path`.
     - For code nodes (`Class`, `Function`, etc.), return `n.qualified_name AS qualified_name`.
-5.  **KEEP IT SIMPLE**: Do not try to be clever. A simple query that returns a few relevant nodes is better than a complex one that fails.
-6.  **CLAUSE ORDER**: You MUST follow the standard Cypher clause order: `MATCH`, `WHERE`, `RETURN`, `LIMIT`.
+6.  **KEEP IT SIMPLE**: Do not try to be clever. A simple query that returns a few relevant nodes is better than a complex one that fails.
+7.  **CLAUSE ORDER**: You MUST follow the standard Cypher clause order: `MATCH`, `WHERE`, `RETURN`, `LIMIT`.
 
 **Examples:**
 
 *   **Natural Language:** "Find the main README file"
 *   **Cypher Query:**
-    {CYPHER_EXAMPLE_README}
+    MATCH (f:File {{project_id: '{project_id}'}}) WHERE toLower(f.name) CONTAINS 'readme' RETURN f.path AS path, f.name AS name, labels(f) AS type
 
 *   **Natural Language:** "Find all python files"
 *   **Cypher Query (Note the '.' in extension):**
-    {CYPHER_EXAMPLE_PYTHON_FILES}
+    MATCH (f:File {{project_id: '{project_id}'}}) WHERE f.extension = '.py' RETURN f.path AS path, f.name AS name, labels(f) AS type
 
 *   **Natural Language:** "show me the tasks"
 *   **Cypher Query:**
-    {CYPHER_EXAMPLE_TASKS}
+    MATCH (n:Function|Method {{project_id: '{project_id}'}}) WHERE 'task' IN n.decorators RETURN n.qualified_name AS qualified_name, n.name AS name, labels(n) AS type
 
 *   **Natural Language:** "list files in the services folder"
 *   **Cypher Query:**
-    {CYPHER_EXAMPLE_FILES_IN_FOLDER}
+    MATCH (f:File {{project_id: '{project_id}'}}) WHERE f.path STARTS WITH '{project_id}:services' RETURN f.path AS path, f.name AS name, labels(f) AS type
 
 *   **Natural Language:** "Find just one file to test"
 *   **Cypher Query:**
-    {CYPHER_EXAMPLE_LIMIT_ONE}
+    MATCH (f:File {{project_id: '{project_id}'}}) RETURN f.path as path, f.name as name, labels(f) as type LIMIT 1
 
 BAD OUTPUT:
 Here is the query:

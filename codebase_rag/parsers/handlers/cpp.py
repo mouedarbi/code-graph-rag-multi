@@ -34,13 +34,13 @@ class CppHandler(BaseLanguageHandler):
         lang_config: LanguageSpec | None,
         file_path: Path | None,
         repo_path: Path,
-        project_name: str,
+        project_id: str,
     ) -> str:
         if (
             fqn_config := LANGUAGE_FQN_SPECS.get(cs.SupportedLanguage.CPP)
         ) and file_path:
             if func_qn := resolve_fqn_from_ast(
-                node, file_path, repo_path, project_name, fqn_config
+                node, file_path, repo_path, project_id, fqn_config
             ):
                 return func_qn
 

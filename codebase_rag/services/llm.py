@@ -112,15 +112,20 @@ def _ensure_semicolon(query: str) -> str:
 
 
 class CypherGenerator:
-    def __init__(self) -> None:
+    def __init__(self, project_id: str) -> None:
         try:
             config = settings.active_cypher_config
             llm = _create_provider_model(config)
 
+            from ..prompts import (
+                build_cypher_system_prompt,
+                build_local_cypher_system_prompt,
+            )
+
             system_prompt = (
-                LOCAL_CYPHER_SYSTEM_PROMPT
+                build_local_cypher_system_prompt(project_id)
                 if config.provider == cs.Provider.OLLAMA
-                else CYPHER_SYSTEM_PROMPT
+                else build_cypher_system_prompt(project_id)
             )
 
             self.agent = Agent(

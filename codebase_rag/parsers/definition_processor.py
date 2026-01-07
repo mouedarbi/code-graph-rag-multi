@@ -34,6 +34,7 @@ class DefinitionProcessor(
         ingestor: IngestorProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         function_registry: FunctionRegistryTrieProtocol,
         simple_name_lookup: SimpleNameLookup,
         import_processor: ImportProcessor,
@@ -43,6 +44,7 @@ class DefinitionProcessor(
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.function_registry = function_registry
         self.simple_name_lookup = simple_name_lookup
         self.import_processor = import_processor
@@ -61,6 +63,7 @@ class DefinitionProcessor(
             file_path = Path(file_path)
         relative_path = file_path.relative_to(self.repo_path)
         relative_path_str = str(relative_path)
+        file_unique_path = f"{self.project_id}:{relative_path_str}"
         logger.info(
             ls.DEF_PARSING_AST.format(language=language, path=relative_path_str)
         )
@@ -86,11 +89,11 @@ class DefinitionProcessor(
             root_node = tree.root_node
 
             module_qn = cs.SEPARATOR_DOT.join(
-                [self.project_name] + list(relative_path.with_suffix("").parts)
+                [self.project_id] + list(relative_path.with_suffix("").parts)
             )
             if file_path.name in (cs.INIT_PY, cs.MOD_RS):
                 module_qn = cs.SEPARATOR_DOT.join(
-                    [self.project_name] + list(relative_path.parent.parts)
+                    [self.project_id] + list(relative_path.parent.parts)
                 )
             self.module_qn_to_file_path[module_qn] = file_path
 
@@ -99,7 +102,8 @@ class DefinitionProcessor(
                 {
                     cs.KEY_QUALIFIED_NAME: module_qn,
                     cs.KEY_NAME: file_path.name,
-                    cs.KEY_PATH: relative_path_str,
+                    cs.KEY_PATH: file_unique_path,
+                    cs.KEY_PROJECT_ID: self.project_id,
                 },
             )
 
@@ -109,9 +113,9 @@ class DefinitionProcessor(
                 (cs.NodeLabel.PACKAGE, cs.KEY_QUALIFIED_NAME, parent_container_qn)
                 if parent_container_qn
                 else (
-                    (cs.NodeLabel.FOLDER, cs.KEY_PATH, str(parent_rel_path))
+                    (cs.NodeLabel.FOLDER, cs.KEY_PATH, f"{self.project_id}:{parent_rel_path}")
                     if parent_rel_path != Path(".")
-                    else (cs.NodeLabel.PROJECT, cs.KEY_NAME, self.project_name)
+                    else (cs.NodeLabel.PROJECT, cs.KEY_PROJECT_ID, self.project_id)
                 )
             )
             self.ingestor.ensure_relationship_batch(
@@ -165,7 +169,7 @@ class DefinitionProcessor(
             rel_properties |= properties
 
         self.ingestor.ensure_relationship_batch(
-            (cs.NodeLabel.PROJECT, cs.KEY_NAME, self.project_name),
+            (cs.NodeLabel.PROJECT, cs.KEY_PROJECT_ID, self.project_id),
             cs.RelationshipType.DEPENDS_ON_EXTERNAL,
             (cs.NodeLabel.EXTERNAL_PACKAGE, cs.KEY_NAME, dep_name),
             properties=rel_properties,

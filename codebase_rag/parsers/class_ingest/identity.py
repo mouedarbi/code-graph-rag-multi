@@ -23,14 +23,14 @@ def resolve_class_identity(
     lang_config: LanguageSpec,
     file_path: Path | None,
     repo_path: Path,
-    project_name: str,
+    project_id: str,
 ) -> tuple[str, str, bool] | None:
     if (fqn_config := LANGUAGE_FQN_SPECS.get(language)) and file_path:
         if class_qn := resolve_fqn_from_ast(
             class_node,
             file_path,
             repo_path,
-            project_name,
+            project_id,
             fqn_config,
         ):
             class_name = class_qn.split(cs.SEPARATOR_DOT)[-1]

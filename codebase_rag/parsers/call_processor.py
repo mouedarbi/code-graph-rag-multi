@@ -23,6 +23,7 @@ class CallProcessor:
         ingestor: IngestorProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         function_registry: FunctionRegistryTrieProtocol,
         import_processor: ImportProcessor,
         type_inference: TypeInferenceEngine,
@@ -31,6 +32,7 @@ class CallProcessor:
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
 
         self._resolver = CallResolver(
             function_registry=function_registry,
@@ -58,11 +60,11 @@ class CallProcessor:
 
         try:
             module_qn = cs.SEPARATOR_DOT.join(
-                [self.project_name] + list(relative_path.with_suffix("").parts)
+                [self.project_id] + list(relative_path.with_suffix("").parts)
             )
             if file_path.name in (cs.INIT_PY, cs.MOD_RS):
                 module_qn = cs.SEPARATOR_DOT.join(
-                    [self.project_name] + list(relative_path.parent.parts)
+                    [self.project_id] + list(relative_path.parent.parts)
                 )
 
             self._process_calls_in_functions(root_node, module_qn, language, queries)

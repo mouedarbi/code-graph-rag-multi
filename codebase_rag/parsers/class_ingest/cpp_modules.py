@@ -20,7 +20,7 @@ def ingest_cpp_module_declarations(
     module_qn: str,
     file_path: Path,
     repo_path: Path,
-    project_name: str,
+    project_id: str,
     ingestor: IngestorProtocol,
 ) -> None:
     module_declarations = _find_module_declarations(root_node)
@@ -28,13 +28,13 @@ def ingest_cpp_module_declarations(
     for _, decl_text in module_declarations:
         if decl_text.startswith(cs.CPP_EXPORT_MODULE_PREFIX):
             _process_export_module(
-                decl_text, module_qn, file_path, repo_path, project_name, ingestor
+                decl_text, module_qn, file_path, repo_path, project_id, ingestor
             )
         elif decl_text.startswith(cs.CPP_MODULE_PREFIX) and not decl_text.startswith(
             cs.CPP_MODULE_PRIVATE_PREFIX
         ):
             _process_module_implementation(
-                decl_text, module_qn, file_path, repo_path, project_name, ingestor
+                decl_text, module_qn, file_path, repo_path, project_id, ingestor
             )
 
 
@@ -68,7 +68,7 @@ def _process_export_module(
     module_qn: str,
     file_path: Path,
     repo_path: Path,
-    project_name: str,
+    project_id: str,
     ingestor: IngestorProtocol,
 ) -> None:
     parts = decl_text.split()
@@ -76,7 +76,7 @@ def _process_export_module(
         return
 
     module_name = parts[2].rstrip(cs.CHAR_SEMICOLON)
-    interface_qn = f"{project_name}.{module_name}"
+    interface_qn = f"{project_id}.{module_name}"
 
     ingestor.ensure_node_batch(
         cs.NodeLabel.MODULE_INTERFACE,
@@ -85,6 +85,7 @@ def _process_export_module(
             cs.KEY_NAME: module_name,
             cs.KEY_PATH: str(file_path.relative_to(repo_path)),
             cs.KEY_MODULE_TYPE: cs.CPP_MODULE_TYPE_INTERFACE,
+            cs.KEY_PROJECT_ID: project_id,
         },
     )
 
@@ -102,7 +103,7 @@ def _process_module_implementation(
     module_qn: str,
     file_path: Path,
     repo_path: Path,
-    project_name: str,
+    project_id: str,
     ingestor: IngestorProtocol,
 ) -> None:
     parts = decl_text.split()
@@ -110,7 +111,7 @@ def _process_module_implementation(
         return
 
     module_name = parts[1].rstrip(cs.CHAR_SEMICOLON)
-    impl_qn = f"{project_name}.{module_name}{cs.CPP_IMPL_SUFFIX}"
+    impl_qn = f"{project_id}.{module_name}{cs.CPP_IMPL_SUFFIX}"
 
     ingestor.ensure_node_batch(
         cs.NodeLabel.MODULE_IMPLEMENTATION,
@@ -120,6 +121,7 @@ def _process_module_implementation(
             cs.KEY_PATH: str(file_path.relative_to(repo_path)),
             cs.KEY_IMPLEMENTS_MODULE: module_name,
             cs.KEY_MODULE_TYPE: cs.CPP_MODULE_TYPE_IMPLEMENTATION,
+            cs.KEY_PROJECT_ID: project_id,
         },
     )
 
@@ -129,7 +131,7 @@ def _process_module_implementation(
         (cs.NodeLabel.MODULE_IMPLEMENTATION, cs.KEY_QUALIFIED_NAME, impl_qn),
     )
 
-    interface_qn = f"{project_name}.{module_name}"
+    interface_qn = f"{project_id}.{module_name}"
     ingestor.ensure_relationship_batch(
         (cs.NodeLabel.MODULE_IMPLEMENTATION, cs.KEY_QUALIFIED_NAME, impl_qn),
         cs.RelationshipType.IMPLEMENTS,

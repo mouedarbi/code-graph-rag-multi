@@ -162,6 +162,7 @@ KEY_START_LINE = "start_line"
 KEY_END_LINE = "end_line"
 KEY_PATH = "path"
 KEY_EXTENSION = "extension"
+KEY_PROJECT_ID = "project_id"
 KEY_MODULE_TYPE = "module_type"
 KEY_IMPLEMENTS_MODULE = "implements_module"
 KEY_PROPS = "props"
@@ -830,7 +831,7 @@ UNIXCODER_MAX_CONTEXT = 1024
 REL_TYPE_CALLS = "CALLS"
 
 NODE_UNIQUE_CONSTRAINTS: dict[str, str] = {
-    "Project": "name",
+    "Project": "project_id",
     "Package": "qualified_name",
     "Folder": "path",
     "Module": "qualified_name",
@@ -2120,6 +2121,7 @@ class MCPToolName(StrEnum):
 # (H) MCP environment variables
 class MCPEnvVar(StrEnum):
     TARGET_REPO_PATH = "TARGET_REPO_PATH"
+    TARGET_PROJECT_ID = "TARGET_PROJECT_ID"
     CLAUDE_PROJECT_ROOT = "CLAUDE_PROJECT_ROOT"
     PWD = "PWD"
 

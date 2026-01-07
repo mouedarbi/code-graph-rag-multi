@@ -32,6 +32,7 @@ class JavaTypeInferenceEngine(
         function_registry: FunctionRegistryTrieProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         ast_cache: "ASTCacheProtocol",
         queries: dict[cs.SupportedLanguage, LanguageQueries],
         module_qn_to_file_path: dict[str, Path],
@@ -42,6 +43,7 @@ class JavaTypeInferenceEngine(
         self.function_registry = function_registry
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.ast_cache = ast_cache
         self.queries = queries
         self.module_qn_to_file_path = module_qn_to_file_path

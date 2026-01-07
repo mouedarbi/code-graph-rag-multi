@@ -19,10 +19,12 @@ class LuaTypeInferenceEngine:
         import_processor: ImportProcessor,
         function_registry: FunctionRegistryTrieProtocol,
         project_name: str,
+        project_id: str,
     ):
         self.import_processor = import_processor
         self.function_registry = function_registry
         self.project_name = project_name
+        self.project_id = project_id
 
     def build_local_variable_type_map(
         self, caller_node: TreeSitterNodeProtocol, module_qn: str

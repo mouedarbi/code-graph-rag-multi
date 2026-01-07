@@ -75,6 +75,7 @@ class AppConfig(BaseSettings):
     LOCAL_MODEL_ENDPOINT: AnyHttpUrl = AnyHttpUrl("http://localhost:11434/v1")
 
     TARGET_REPO_PATH: str = "."
+    TARGET_PROJECT_ID: str | None = None
     SHELL_COMMAND_TIMEOUT: int = 30
     SHELL_COMMAND_ALLOWLIST: frozenset[str] = frozenset(
         {

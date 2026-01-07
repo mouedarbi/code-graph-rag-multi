@@ -35,7 +35,7 @@ class BaseLanguageHandler:
         lang_config: LanguageSpec | None,
         file_path: Path | None,
         repo_path: Path,
-        project_name: str,
+        project_id: str,
     ) -> str:
         return f"{module_qn}{cs.SEPARATOR_DOT}{func_name}"
 

@@ -83,6 +83,7 @@ def ingest_method(
     language: cs.SupportedLanguage | None = None,
     extract_decorators_func: Callable[[ASTNode], list[str]] | None = None,
     method_qualified_name: str | None = None,
+    project_id: str | None = None,
 ) -> None:
     if language == cs.SupportedLanguage.CPP:
         from .cpp import utils as cpp_utils
@@ -108,6 +109,7 @@ def ingest_method(
         cs.KEY_START_LINE: method_node.start_point[0] + 1,
         cs.KEY_END_LINE: method_node.end_point[0] + 1,
         cs.KEY_DOCSTRING: get_docstring_func(method_node),
+        cs.KEY_PROJECT_ID: project_id,
     }
 
     logger.info(logs.METHOD_FOUND.format(name=method_name, qn=method_qn))
@@ -132,6 +134,7 @@ def ingest_exported_function(
     simple_name_lookup: SimpleNameLookup,
     get_docstring_func: Callable[[ASTNode], str | None],
     is_export_inside_function_func: Callable[[ASTNode], bool],
+    project_id: str | None = None,
 ) -> None:
     if is_export_inside_function_func(function_node):
         return
@@ -144,6 +147,7 @@ def ingest_exported_function(
         cs.KEY_START_LINE: function_node.start_point[0] + 1,
         cs.KEY_END_LINE: function_node.end_point[0] + 1,
         cs.KEY_DOCSTRING: get_docstring_func(function_node),
+        cs.KEY_PROJECT_ID: project_id,
     }
 
     logger.info(

@@ -21,6 +21,7 @@ class ProcessorFactory:
         ingestor: IngestorProtocol,
         repo_path: Path,
         project_name: str,
+        project_id: str,
         queries: dict[SupportedLanguage, LanguageQueries],
         function_registry: FunctionRegistryTrieProtocol,
         simple_name_lookup: SimpleNameLookup,
@@ -29,6 +30,7 @@ class ProcessorFactory:
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.project_name = project_name
+        self.project_id = project_id
         self.queries = queries
         self.function_registry = function_registry
         self.simple_name_lookup = simple_name_lookup
@@ -48,6 +50,7 @@ class ProcessorFactory:
             self._import_processor = ImportProcessor(
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 ingestor=self.ingestor,
                 function_registry=self.function_registry,
             )
@@ -60,6 +63,7 @@ class ProcessorFactory:
                 ingestor=self.ingestor,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 queries=self.queries,
             )
         return self._structure_processor
@@ -71,6 +75,7 @@ class ProcessorFactory:
                 ingestor=self.ingestor,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 function_registry=self.function_registry,
                 simple_name_lookup=self.simple_name_lookup,
                 import_processor=self.import_processor,
@@ -86,6 +91,7 @@ class ProcessorFactory:
                 function_registry=self.function_registry,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 ast_cache=self.ast_cache,
                 queries=self.queries,
                 module_qn_to_file_path=self.module_qn_to_file_path,
@@ -101,6 +107,7 @@ class ProcessorFactory:
                 ingestor=self.ingestor,
                 repo_path=self.repo_path,
                 project_name=self.project_name,
+                project_id=self.project_id,
                 function_registry=self.function_registry,
                 import_processor=self.import_processor,
                 type_inference=self.type_inference,

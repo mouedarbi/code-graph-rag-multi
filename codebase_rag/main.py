@@ -674,14 +674,14 @@ def _validate_provider_config(role: cs.ModelRole, config: ModelConfig) -> None:
 
 
 def _initialize_services_and_agent(
-    repo_path: str, ingestor: QueryProtocol
+    repo_path: str, ingestor: QueryProtocol, project_id: str
 ) -> tuple[Agent[None, str | DeferredToolRequests], ConfirmationToolNames]:
     _validate_provider_config(
         cs.ModelRole.ORCHESTRATOR, settings.active_orchestrator_config
     )
     _validate_provider_config(cs.ModelRole.CYPHER, settings.active_cypher_config)
 
-    cypher_generator = CypherGenerator()
+    cypher_generator = CypherGenerator(project_id=project_id)
     code_retriever = CodeRetriever(project_root=repo_path, ingestor=ingestor)
     file_reader = FileReader(project_root=repo_path)
     file_writer = FileWriter(project_root=repo_path)
@@ -728,6 +728,7 @@ def _initialize_services_and_agent(
 
 async def main_async(repo_path: str, batch_size: int) -> None:
     project_root = _setup_common_initialization(repo_path)
+    project_id = settings.TARGET_PROJECT_ID or project_root.name
 
     table = _create_configuration_table(repo_path)
     app_context.console.print(table)
@@ -741,7 +742,7 @@ async def main_async(repo_path: str, batch_size: int) -> None:
             )
         )
 
-        rag_agent, tool_names = _initialize_services_and_agent(repo_path, ingestor)
+        rag_agent, tool_names = _initialize_services_and_agent(repo_path, ingestor, project_id)
         await run_chat_loop(rag_agent, [], project_root, tool_names)
 
 
@@ -754,6 +755,7 @@ async def main_optimize_async(
     batch_size: int | None = None,
 ) -> None:
     project_root = _setup_common_initialization(target_repo_path)
+    project_id = settings.TARGET_PROJECT_ID or project_root.name
 
     update_model_settings(orchestrator, cypher)
 
@@ -772,7 +774,7 @@ async def main_optimize_async(
         app_context.console.print(style(cs.MSG_CONNECTED_MEMGRAPH, cs.Color.GREEN))
 
         rag_agent, tool_names = _initialize_services_and_agent(
-            target_repo_path, ingestor
+            target_repo_path, ingestor, project_id
         )
         await run_optimization_loop(
             rag_agent, [], project_root, language, tool_names, reference_document

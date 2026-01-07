@@ -39,6 +39,7 @@ class FunctionIngestMixin:
     ingestor: IngestorProtocol
     repo_path: Path
     project_name: str
+    project_id: str
     function_registry: FunctionRegistryTrieProtocol
     simple_name_lookup: SimpleNameLookup
     module_qn_to_file_path: dict[str, Path]
@@ -112,7 +113,7 @@ class FunctionIngestMixin:
             return None
 
         func_qn = resolve_fqn_from_ast(
-            func_node, file_path, self.repo_path, self.project_name, fqn_config
+            func_node, file_path, self.repo_path, self.project_id, fqn_config
         )
         if not func_qn:
             return None
@@ -227,6 +228,7 @@ class FunctionIngestMixin:
             cs.KEY_END_LINE: func_node.end_point[0] + 1,
             cs.KEY_DOCSTRING: self._get_docstring(func_node),
             cs.KEY_IS_EXPORTED: resolution.is_exported,
+            cs.KEY_PROJECT_ID: self.project_id,
         }
 
     def _create_function_relationships(

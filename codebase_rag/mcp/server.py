@@ -58,7 +58,9 @@ def get_project_root() -> Path:
 def create_server() -> tuple[Server, MemgraphIngestor]:
     try:
         project_root = get_project_root()
+        project_id = os.environ.get(cs.MCPEnvVar.TARGET_PROJECT_ID) or settings.TARGET_PROJECT_ID or project_root.name
         logger.info(lg.MCP_SERVER_USING_ROOT.format(path=project_root))
+        logger.info(f"MCP Server using project_id: {project_id}")
     except ValueError as e:
         logger.error(lg.MCP_SERVER_CONFIG_ERROR.format(error=e))
         raise
@@ -71,10 +73,11 @@ def create_server() -> tuple[Server, MemgraphIngestor]:
         batch_size=settings.MEMGRAPH_BATCH_SIZE,
     )
 
-    cypher_generator = CypherGenerator()
+    cypher_generator = CypherGenerator(project_id=project_id)
 
     tools = create_mcp_tools_registry(
         project_root=str(project_root),
+        project_id=project_id,
         ingestor=ingestor,
         cypher_gen=cypher_generator,
     )
