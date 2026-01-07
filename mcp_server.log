@@ -1,0 +1,22 @@
+2026-01-02 22:18:17.765 | INFO     | codebase_rag.mcp.server:main:139 - [GraphCode MCP] Starting MCP server...
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Project root resolved to: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Using project root: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Initializing services...
+2026-01-02 22:18:17 | SUCCESS  | Successfully loaded python grammar.
+2026-01-02 22:18:17 | INFO     | Initialized parsers for: python
+2026-01-02 22:18:17 | INFO     | CodeRetriever initialized with root: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | SUCCESS  | Successfully loaded python grammar.
+2026-01-02 22:18:17 | INFO     | Initialized parsers for: python
+2026-01-02 22:18:17 | INFO     | FileEditor initialized with root: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | INFO     | FileReader initialized with root: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | INFO     | FileWriter initialized with root: /home/mouedarbi/dev/platform
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Services initialized successfully
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Server created, starting stdio transport...
+2026-01-02 22:18:17 | INFO     | Connecting to Memgraph at localhost:7688...
+2026-01-02 22:18:17 | INFO     | Successfully connected to Memgraph.
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Connected to Memgraph at localhost:7688
+2026-01-02 22:18:17 | INFO     | [GraphCode MCP] Shutting down server...
+2026-01-02 22:18:17 | INFO     | --- Flushing all pending writes to database... ---
+2026-01-02 22:18:17 | INFO     | --- Flushing complete. ---
+2026-01-02 22:18:17 | INFO     | 
+Disconnected from Memgraph.

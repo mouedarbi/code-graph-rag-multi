@@ -56,8 +56,6 @@ def get_project_root() -> Path:
 
 
 def create_server() -> tuple[Server, MemgraphIngestor]:
-    setup_logging()
-
     try:
         project_root = get_project_root()
         logger.info(lg.MCP_SERVER_USING_ROOT.format(path=project_root))
@@ -136,6 +134,7 @@ def create_server() -> tuple[Server, MemgraphIngestor]:
 
 
 async def main() -> None:
+    setup_logging()
     logger.info(lg.MCP_SERVER_STARTING)
 
     server, ingestor = create_server()

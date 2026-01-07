@@ -15,6 +15,12 @@ from .. import exceptions as ex
 from .. import logs as ls
 from ..config import ModelConfig, settings
 
+# Import AnthropicProvider locally to avoid circular imports if needed, 
+# or strictly here if we can handle the circular dependency structure.
+# However, base.py defines the interface. Let's try importing it at the top or inside the registry block.
+# Since we just created it in a sibling module, we need to be careful with circular imports if base imports it.
+# Ideally, we should register it in __init__.py or have a separate registry mechanism.
+# But following the existing pattern:
 
 class ModelProvider(ABC):
     def __init__(self, **config: str | int | None) -> None:
@@ -159,6 +165,13 @@ PROVIDER_REGISTRY: dict[str, type[ModelProvider]] = {
     cs.Provider.OPENAI: OpenAIProvider,
     cs.Provider.OLLAMA: OllamaProvider,
 }
+
+# (H) Late import to avoid circular dependencies if any
+try:
+    from .anthropic_provider import AnthropicProvider
+    PROVIDER_REGISTRY[cs.Provider.ANTHROPIC] = AnthropicProvider
+except ImportError:
+    pass
 
 
 def get_provider(

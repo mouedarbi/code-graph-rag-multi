@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
+flask_app/
 
 # Virtual environments
 .venv
