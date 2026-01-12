@@ -11,8 +11,8 @@ from .. import exceptions as ex
 from .. import logs as ls
 from ..config import ModelConfig, settings
 from ..prompts import (
-    CYPHER_SYSTEM_PROMPT,
-    LOCAL_CYPHER_SYSTEM_PROMPT,
+    build_cypher_system_prompt,
+    build_local_cypher_system_prompt,
     build_rag_orchestrator_prompt,
 )
 from ..providers.base import get_provider_from_config
@@ -137,8 +137,15 @@ class CypherGenerator:
         except Exception as e:
             raise ex.LLMGenerationError(ex.LLM_INIT_CYPHER.format(error=e)) from e
 
-    async def generate(self, natural_language_query: str) -> str:
+    async def generate(
+        self, natural_language_query: str, project_id: str | None = None
+    ) -> str:
         logger.info(ls.CYPHER_GENERATING.format(query=natural_language_query))
+
+        if project_id:
+            natural_language_query = (
+                f"For project with id '{project_id}', {natural_language_query}"
+            )
         try:
             result = await self.agent.run(natural_language_query)
             if (

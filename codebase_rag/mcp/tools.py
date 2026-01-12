@@ -228,10 +228,15 @@ class MCPToolsRegistry:
             logger.error(lg.MCP_ERROR_INDEXING.format(error=e))
             return cs.MCP_INDEX_ERROR.format(error=e)
 
-    async def query_code_graph(self, natural_language_query: str) -> QueryResultDict:
+    async def query_code_graph(
+        self, natural_language_query: str, project_id: str | None = None
+    ) -> QueryResultDict:
         logger.info(lg.MCP_QUERY_CODE_GRAPH.format(query=natural_language_query))
         try:
-            graph_data = await self._query_tool.function(natural_language_query)
+            target_project_id = project_id or self.project_id
+            graph_data = await self._query_tool.function(
+                natural_language_query, project_id=target_project_id
+            )
             result_dict: QueryResultDict = graph_data.model_dump()
             logger.info(
                 lg.MCP_QUERY_RESULTS.format(

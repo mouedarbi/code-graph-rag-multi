@@ -31,11 +31,14 @@ def create_query_tool(
 
     async def query_codebase_knowledge_graph(
         natural_language_query: str,
+        project_id: str | None = None,
     ) -> QueryGraphData:
         logger.info(ls.TOOL_QUERY_RECEIVED.format(query=natural_language_query))
         cypher_query = QUERY_NOT_AVAILABLE
         try:
-            cypher_query = await cypher_gen.generate(natural_language_query)
+            cypher_query = await cypher_gen.generate(
+                natural_language_query, project_id=project_id
+            )
 
             results = ingestor.fetch_all(cypher_query)
 
