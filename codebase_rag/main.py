@@ -7,7 +7,9 @@ import shlex
 import shutil
 import sys
 import uuid
+from collections import deque
 from collections.abc import Coroutine
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -26,9 +28,10 @@ from rich.text import Text
 from . import constants as cs
 from . import exceptions as ex
 from . import logs as ls
-from .config import settings
+from .config import ModelConfig, load_cgrignore_patterns, settings
 from .models import AppContext
 from .prompts import OPTIMIZATION_PROMPT, OPTIMIZATION_PROMPT_WITH_REFERENCE
+from .providers.base import get_provider_from_config
 from .services import QueryProtocol
 from .services.graph_service import MemgraphIngestor
 from .services.llm import CypherGenerator, create_rag_orchestrator
@@ -63,8 +66,7 @@ if TYPE_CHECKING:
     from prompt_toolkit.key_binding import KeyPressEvent
     from pydantic_ai import Agent
     from pydantic_ai.messages import ModelMessage
-
-    from .config import ModelConfig
+    from pydantic_ai.models import Model
 
 
 def style(
@@ -388,6 +390,7 @@ async def _run_agent_response_loop(
     question_with_context: str,
     config: AgentLoopUI,
     tool_names: ConfirmationToolNames,
+    model_override: Model | None = None,
 ) -> None:
     deferred_results: DeferredToolResults | None = None
 
@@ -398,6 +401,7 @@ async def _run_agent_response_loop(
                     question_with_context,
                     message_history=message_history,
                     deferred_tool_results=deferred_results,
+                    model=model_override,
                 ),
             )
 
@@ -528,6 +532,75 @@ def get_multiline_input(prompt_text: str = cs.PROMPT_ASK_QUESTION) -> str:
     return stripped
 
 
+def _create_model_from_string(
+    model_string: str, current_override_config: ModelConfig | None = None
+) -> tuple[Model, str, ModelConfig]:
+    base_config = current_override_config or settings.active_orchestrator_config
+
+    if cs.CHAR_COLON not in model_string:
+        raise ValueError(ex.MODEL_FORMAT_INVALID)
+    provider_name, model_id = (
+        p.strip() for p in settings.parse_model_string(model_string)
+    )
+    if not model_id:
+        raise ValueError(ex.MODEL_ID_EMPTY)
+    if not provider_name:
+        raise ValueError(ex.PROVIDER_EMPTY)
+
+    if provider_name == base_config.provider:
+        config = replace(base_config, model_id=model_id)
+    elif provider_name == cs.Provider.OLLAMA:
+        config = ModelConfig(
+            provider=provider_name,
+            model_id=model_id,
+            endpoint=str(settings.LOCAL_MODEL_ENDPOINT),
+            api_key=cs.DEFAULT_API_KEY,
+        )
+    else:
+        config = ModelConfig(provider=provider_name, model_id=model_id)
+
+    canonical_string = f"{provider_name}{cs.CHAR_COLON}{model_id}"
+    provider = get_provider_from_config(config)
+    return provider.create_model(model_id), canonical_string, config
+
+
+def _handle_model_command(
+    command: str,
+    current_model: Model | None,
+    current_model_string: str | None,
+    current_config: ModelConfig | None,
+) -> tuple[Model | None, str | None, ModelConfig | None]:
+    parts = command.strip().split(maxsplit=1)
+    arg = parts[1].strip() if len(parts) > 1 else None
+
+    if not arg:
+        if current_model_string:
+            display_model = current_model_string
+        else:
+            config = settings.active_orchestrator_config
+            display_model = f"{config.provider}{cs.CHAR_COLON}{config.model_id}"
+        app_context.console.print(cs.UI_MODEL_CURRENT.format(model=display_model))
+        return current_model, current_model_string, current_config
+
+    if arg.lower() == cs.HELP_ARG:
+        app_context.console.print(cs.UI_MODEL_USAGE)
+        return current_model, current_model_string, current_config
+
+    try:
+        new_model, canonical_model_string, new_config = _create_model_from_string(
+            arg, current_config
+        )
+        logger.info(ls.MODEL_SWITCHED.format(model=canonical_model_string))
+        app_context.console.print(
+            cs.UI_MODEL_SWITCHED.format(model=canonical_model_string)
+        )
+        return new_model, canonical_model_string, new_config
+    except (ValueError, AssertionError) as e:
+        logger.error(ls.MODEL_SWITCH_FAILED.format(error=e))
+        app_context.console.print(cs.UI_MODEL_SWITCH_ERROR.format(error=e))
+        return current_model, current_model_string, current_config
+
+
 async def _run_interactive_loop(
     rag_agent: Agent[None, str | DeferredToolRequests],
     message_history: list[ModelMessage],
@@ -539,15 +612,39 @@ async def _run_interactive_loop(
 ) -> None:
     init_session_log(project_root)
     question = initial_question or ""
+    model_override: Model | None = None
+    model_override_string: str | None = None
+    model_override_config: ModelConfig | None = None
 
     while True:
         try:
             if not initial_question or question != initial_question:
                 question = await asyncio.to_thread(get_multiline_input, input_prompt)
 
-            if question.lower() in cs.EXIT_COMMANDS:
+            stripped_question = question.strip()
+            stripped_lower = stripped_question.lower()
+
+            if stripped_lower in cs.EXIT_COMMANDS:
                 break
-            if not question.strip():
+
+            if not stripped_question:
+                initial_question = None
+                continue
+
+            command_parts = stripped_lower.split(maxsplit=1)
+            if command_parts[0] == cs.MODEL_COMMAND_PREFIX:
+                model_override, model_override_string, model_override_config = (
+                    _handle_model_command(
+                        stripped_question,
+                        model_override,
+                        model_override_string,
+                        model_override_config,
+                    )
+                )
+                initial_question = None
+                continue
+            if command_parts[0] == cs.HELP_COMMAND:
+                app_context.console.print(cs.UI_HELP_COMMANDS)
                 initial_question = None
                 continue
 
@@ -564,7 +661,12 @@ async def _run_interactive_loop(
             )
 
             await _run_agent_response_loop(
-                rag_agent, message_history, question_with_context, config, tool_names
+                rag_agent,
+                message_history,
+                question_with_context,
+                config,
+                tool_names,
+                model_override,
             )
 
             initial_question = None
@@ -607,7 +709,7 @@ def _update_single_model_setting(role: cs.ModelRole, model_string: str) -> None:
 
     if provider == cs.Provider.OLLAMA and not kwargs[cs.FIELD_ENDPOINT]:
         kwargs[cs.FIELD_ENDPOINT] = str(settings.LOCAL_MODEL_ENDPOINT)
-        kwargs[cs.FIELD_API_KEY] = cs.Provider.OLLAMA
+        kwargs[cs.FIELD_API_KEY] = cs.DEFAULT_API_KEY
 
     set_method(provider, model, **kwargs)
 
@@ -661,6 +763,186 @@ def export_graph_to_file(ingestor: MemgraphIngestor, output: str) -> bool:
         app_context.console.print(cs.UI_ERR_EXPORT_FAILED.format(error=e))
         logger.exception(ls.EXPORT_ERROR.format(error=e))
         return False
+
+
+def detect_excludable_directories(repo_path: Path) -> set[str]:
+    detected: set[str] = set()
+    queue: deque[tuple[Path, int]] = deque([(repo_path, 0)])
+    while queue:
+        current, depth = queue.popleft()
+        if depth > cs.INTERACTIVE_BFS_MAX_DEPTH:
+            continue
+        try:
+            entries = list(current.iterdir())
+        except PermissionError:
+            continue
+        for path in entries:
+            if not path.is_dir():
+                continue
+            if path.name in cs.IGNORE_PATTERNS:
+                detected.add(str(path.relative_to(repo_path)))
+            else:
+                queue.append((path, depth + 1))
+    return detected
+
+
+def _get_grouping_key(path: str) -> str:
+    parts = Path(path).parts
+    if not parts:
+        return cs.INTERACTIVE_DEFAULT_GROUP
+    for part in parts:
+        if part in cs.IGNORE_PATTERNS:
+            return part
+    return parts[0]
+
+
+def _group_paths_by_pattern(paths: set[str]) -> dict[str, list[str]]:
+    groups: dict[str, list[str]] = {}
+    for path in paths:
+        key = _get_grouping_key(path)
+        if key not in groups:
+            groups[key] = []
+        groups[key].append(path)
+    for group_paths in groups.values():
+        group_paths.sort()
+    return groups
+
+
+def _format_nested_count(count: int) -> str:
+    template = (
+        cs.INTERACTIVE_NESTED_SINGULAR if count == 1 else cs.INTERACTIVE_NESTED_PLURAL
+    )
+    return template.format(count=count)
+
+
+def _display_grouped_table(groups: dict[str, list[str]]) -> list[str]:
+    sorted_roots = sorted(groups.keys())
+    table = Table(title=style(cs.INTERACTIVE_TITLE_GROUPED, cs.Color.CYAN))
+    table.add_column(cs.INTERACTIVE_COL_NUM, style=cs.Color.YELLOW, width=4)
+    table.add_column(cs.INTERACTIVE_COL_PATTERN)
+    table.add_column(cs.INTERACTIVE_COL_NESTED, style=cs.INTERACTIVE_STYLE_DIM)
+
+    for i, root in enumerate(sorted_roots, 1):
+        nested_count = len(groups[root])
+        table.add_row(str(i), root, _format_nested_count(nested_count))
+
+    app_context.console.print(table)
+    app_context.console.print(
+        style(
+            cs.INTERACTIVE_INSTRUCTIONS_GROUPED, cs.Color.YELLOW, cs.StyleModifier.NONE
+        )
+    )
+    return sorted_roots
+
+
+def _display_nested_table(pattern: str, paths: list[str]) -> None:
+    title = cs.INTERACTIVE_TITLE_NESTED.format(pattern=pattern)
+    table = Table(title=style(title, cs.Color.CYAN))
+    table.add_column(cs.INTERACTIVE_COL_NUM, style=cs.Color.YELLOW, width=4)
+    table.add_column(cs.INTERACTIVE_COL_PATH)
+
+    for i, path in enumerate(paths, 1):
+        table.add_row(str(i), path)
+
+    app_context.console.print(table)
+    app_context.console.print(
+        style(
+            cs.INTERACTIVE_INSTRUCTIONS_NESTED.format(pattern=pattern),
+            cs.Color.YELLOW,
+            cs.StyleModifier.NONE,
+        )
+    )
+
+
+def _prompt_nested_selection(pattern: str, paths: list[str]) -> set[str]:
+    _display_nested_table(pattern, paths)
+
+    response = Prompt.ask(
+        style(cs.INTERACTIVE_PROMPT_KEEP, cs.Color.CYAN),
+        default=cs.INTERACTIVE_KEEP_NONE,
+    )
+
+    if response.lower() == cs.INTERACTIVE_KEEP_ALL:
+        return set(paths)
+    if response.lower() == cs.INTERACTIVE_KEEP_NONE:
+        return set()
+
+    selected: set[str] = set()
+    for part in response.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if part.isdigit():
+            idx = int(part) - 1
+            if 0 <= idx < len(paths):
+                selected.add(paths[idx])
+            else:
+                logger.warning(ls.EXCLUDE_INVALID_INDEX.format(index=part))
+        else:
+            logger.warning(ls.EXCLUDE_INVALID_INPUT.format(input=part))
+
+    return selected
+
+
+def prompt_for_unignored_directories(
+    repo_path: Path,
+    cli_excludes: list[str] | None = None,
+) -> frozenset[str]:
+    detected = detect_excludable_directories(repo_path)
+    cgrignore = load_cgrignore_patterns(repo_path)
+    cli_patterns = frozenset(cli_excludes) if cli_excludes else frozenset()
+    pre_excluded = cli_patterns | cgrignore.exclude
+
+    if not detected and not pre_excluded:
+        return cgrignore.unignore
+
+    all_candidates = detected | pre_excluded
+    groups = _group_paths_by_pattern(all_candidates)
+    sorted_roots = _display_grouped_table(groups)
+
+    response = Prompt.ask(
+        style(cs.INTERACTIVE_PROMPT_KEEP, cs.Color.CYAN),
+        default=cs.INTERACTIVE_KEEP_NONE,
+    )
+
+    if response.lower() == cs.INTERACTIVE_KEEP_ALL:
+        return frozenset(all_candidates) | cgrignore.unignore
+
+    if response.lower() == cs.INTERACTIVE_KEEP_NONE:
+        return cgrignore.unignore
+
+    selected: set[str] = set()
+    expand_requests: list[int] = []
+    regular_selections: list[int] = []
+
+    for part in response.split(","):
+        part = part.strip().lower()
+        if not part:
+            continue
+
+        if part.endswith(cs.INTERACTIVE_EXPAND_SUFFIX) and part[:-1].isdigit():
+            expand_requests.append(int(part[:-1]) - 1)
+        elif part.isdigit():
+            regular_selections.append(int(part) - 1)
+        else:
+            logger.warning(ls.EXCLUDE_INVALID_INPUT.format(input=part))
+
+    for idx in expand_requests:
+        if 0 <= idx < len(sorted_roots):
+            root = sorted_roots[idx]
+            nested_selected = _prompt_nested_selection(root, groups[root])
+            selected.update(nested_selected)
+        else:
+            logger.warning(ls.EXCLUDE_INVALID_INDEX.format(index=idx + 1))
+
+    for idx in regular_selections:
+        if 0 <= idx < len(sorted_roots):
+            root = sorted_roots[idx]
+            selected.update(groups[root])
+        else:
+            logger.warning(ls.EXCLUDE_INVALID_INDEX.format(index=idx + 1))
+
+    return frozenset(selected) | cgrignore.unignore
 
 
 def _validate_provider_config(role: cs.ModelRole, config: ModelConfig) -> None:

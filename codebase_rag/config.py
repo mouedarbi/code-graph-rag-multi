@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Unpack
 
 from dotenv import load_dotenv
+from loguru import logger
 from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import constants as cs
 from . import exceptions as ex
-from .types_defs import ModelConfigKwargs
+from . import logs
+from .types_defs import CgrignorePatterns, ModelConfigKwargs
 
 load_dotenv()
 
@@ -96,6 +99,17 @@ class AppConfig(BaseSettings):
             "mv",
             "mkdir",
             "rmdir",
+            "wc",
+            "head",
+            "tail",
+            "sort",
+            "uniq",
+            "cut",
+            "tr",
+            "xargs",
+            "awk",
+            "sed",
+            "tee",
         }
     )
     SHELL_READ_ONLY_COMMANDS: frozenset[str] = frozenset(
@@ -106,6 +120,13 @@ class AppConfig(BaseSettings):
             "pwd",
             "rg",
             "echo",
+            "wc",
+            "head",
+            "tail",
+            "sort",
+            "uniq",
+            "cut",
+            "tr",
         }
     )
     SHELL_SAFE_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
@@ -210,3 +231,42 @@ class AppConfig(BaseSettings):
 
 
 settings = AppConfig()
+
+CGRIGNORE_FILENAME = ".cgrignore"
+
+
+EMPTY_CGRIGNORE = CgrignorePatterns(exclude=frozenset(), unignore=frozenset())
+
+
+def load_cgrignore_patterns(repo_path: Path) -> CgrignorePatterns:
+    ignore_file = repo_path / CGRIGNORE_FILENAME
+    if not ignore_file.is_file():
+        return EMPTY_CGRIGNORE
+
+    exclude: set[str] = set()
+    unignore: set[str] = set()
+    try:
+        with ignore_file.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("!"):
+                    unignore.add(line[1:].strip())
+                else:
+                    exclude.add(line)
+        if exclude or unignore:
+            logger.info(
+                logs.CGRIGNORE_LOADED.format(
+                    exclude_count=len(exclude),
+                    unignore_count=len(unignore),
+                    path=ignore_file,
+                )
+            )
+        return CgrignorePatterns(
+            exclude=frozenset(exclude),
+            unignore=frozenset(unignore),
+        )
+    except OSError as e:
+        logger.warning(logs.CGRIGNORE_READ_FAILED.format(path=ignore_file, error=e))
+        return EMPTY_CGRIGNORE

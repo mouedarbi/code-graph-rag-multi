@@ -239,6 +239,11 @@ class CancelledResult(NamedTuple):
     cancelled: bool
 
 
+class CgrignorePatterns(NamedTuple):
+    exclude: frozenset[str]
+    unignore: frozenset[str]
+
+
 class AgentLoopUI(NamedTuple):
     status_message: str
     cancelled_log: str
@@ -378,7 +383,41 @@ class CodeSnippetResultDict(TypedDict, total=False):
     error: str
 
 
-MCPResultType = str | QueryResultDict | CodeSnippetResultDict
+class ListProjectsSuccessResult(TypedDict):
+    projects: list[str]
+    count: int
+
+
+class ListProjectsErrorResult(TypedDict):
+    projects: list[str]
+    count: int
+    error: str
+
+
+ListProjectsResult = ListProjectsSuccessResult | ListProjectsErrorResult
+
+
+class DeleteProjectSuccessResult(TypedDict):
+    success: bool
+    project: str
+    message: str
+
+
+class DeleteProjectErrorResult(TypedDict):
+    success: bool
+    error: str
+
+
+DeleteProjectResult = DeleteProjectSuccessResult | DeleteProjectErrorResult
+
+
+MCPResultType = (
+    str
+    | QueryResultDict
+    | CodeSnippetResultDict
+    | ListProjectsResult
+    | DeleteProjectResult
+)
 MCPHandlerType = Callable[..., Awaitable[MCPResultType]]
 
 

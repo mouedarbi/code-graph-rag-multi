@@ -39,7 +39,11 @@ DIRECTORY_LIST_FAILED = "Error: Could not list contents of '{path}'."
 COMMAND_NOT_ALLOWED = "Command '{cmd}' is not in the allowlist.{suggestion} Available commands: {available}"
 COMMAND_EMPTY = "Empty command provided."
 COMMAND_DANGEROUS = "Rejected dangerous command: {cmd}"
+COMMAND_DANGEROUS_BLOCKED = "Blocked dangerous command '{cmd}': {reason}"
+COMMAND_DANGEROUS_PATTERN = "Command matches dangerous pattern: {reason}"
 COMMAND_TIMEOUT = "Command '{cmd}' timed out after {timeout} seconds."
+COMMAND_SUBSHELL_NOT_ALLOWED = "Subshell execution not allowed: {pattern}"
+COMMAND_INVALID_SYNTAX = "Invalid command syntax: {segment}"
 
 # (H) Code retrieval errors
 CODE_ENTITY_NOT_FOUND = "Entity not found in graph."
@@ -59,6 +63,9 @@ MCP_TOOL_RETURNED_NONE = "Tool returned None"
 MCP_INVALID_RESPONSE = "Code snippet tool returned an invalid response"
 MCP_PATH_NOT_EXISTS = "Target repository path does not exist: {path}"
 MCP_PATH_NOT_DIR = "Target repository path is not a directory: {path}"
+MCP_PROJECT_NOT_FOUND = (
+    "Project '{project_name}' not found. Available projects: {projects}"
+)
 
 # (H) CLI validation errors
 INVALID_POSITIVE_INT = "{value!r} is not a valid positive integer"

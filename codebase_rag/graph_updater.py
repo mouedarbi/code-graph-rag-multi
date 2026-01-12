@@ -24,6 +24,7 @@ from .types_defs import (
 )
 from .utils.dependencies import has_semantic_dependencies
 from .utils.fqn_resolver import find_function_source_by_fqn
+from .utils.path_utils import should_skip_path
 from .utils.source_extraction import extract_source_with_fallback
 
 
@@ -226,19 +227,21 @@ class GraphUpdater:
         repo_path: Path,
         parsers: dict[cs.SupportedLanguage, Parser],
         queries: dict[cs.SupportedLanguage, LanguageQueries],
+        unignore_paths: frozenset[str] | None = None,
+        exclude_paths: frozenset[str] | None = None,
     ):
         self.ingestor = ingestor
         self.repo_path = repo_path
         self.parsers = parsers
         self.queries = queries
-        self.project_name = repo_path.name
+        self.project_name = repo_path.resolve().name
         self.project_id = settings.TARGET_PROJECT_ID or self.project_name
-        self.simple_name_lookup: SimpleNameLookup = defaultdict(set)
         self.function_registry = FunctionRegistryTrie(
             simple_name_lookup=self.simple_name_lookup
         )
         self.ast_cache = BoundedASTCache()
-        self.ignore_dirs = cs.IGNORE_PATTERNS
+        self.unignore_paths = unignore_paths
+        self.exclude_paths = exclude_paths
 
         self.factory = ProcessorFactory(
             ingestor=self.ingestor,
@@ -249,6 +252,8 @@ class GraphUpdater:
             function_registry=self.function_registry,
             simple_name_lookup=self.simple_name_lookup,
             ast_cache=self.ast_cache,
+            unignore_paths=self.unignore_paths,
+            exclude_paths=self.exclude_paths,
         )
 
     def _is_dependency_file(self, file_name: str, filepath: Path) -> bool:
@@ -317,14 +322,13 @@ class GraphUpdater:
                 logger.debug(ls.CLEANED_SIMPLE_NAME.format(name=simple_name))
 
     def _process_files(self) -> None:
-        def should_skip_path(path: Path) -> bool:
-            return any(
-                part in self.ignore_dirs
-                for part in path.relative_to(self.repo_path).parts
-            )
-
         for filepath in self.repo_path.rglob("*"):
-            if filepath.is_file() and not should_skip_path(filepath):
+            if filepath.is_file() and not should_skip_path(
+                filepath,
+                self.repo_path,
+                exclude_paths=self.exclude_paths,
+                unignore_paths=self.unignore_paths,
+            ):
                 lang_config = get_language_spec(filepath.suffix)
                 if (
                     lang_config

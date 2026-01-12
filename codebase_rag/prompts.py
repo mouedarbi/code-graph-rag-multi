@@ -139,14 +139,35 @@ If you output ANYTHING other than Cypher code, the system will crash.
 
 {GRAPH_SCHEMA_AND_RULES}
 
+<<<<<<< HEAD
 **3. CRITICAL OUTPUT RULES**
 - **PROJECT SEGREGATION**: You MUST filter all queries by `project_id: '{project_id}'`.
 - **NO EXPLANATIONS**: Do not include "Note:", "Here is the query", or any conversational text.
 - **NO MARKDOWN**: Do not use markdown code blocks (```cypher ... ```). Return raw text only.
 - **ONLY CYPHER**: The entire response must be a valid executable Cypher query.
+- **LIMIT Results**: ALWAYS add `LIMIT 50` to queries that list items. This prevents overwhelming responses.
+- **Aggregation Queries**: When asked "how many", "count", or "total", return ONLY the count, not all items:
+  - CORRECT: `MATCH (c:Class) WHERE c.project_id = '{project_id}' RETURN count(c) AS total`
+  - WRONG: `MATCH (c:Class) WHERE c.project_id = '{project_id}' RETURN c.name, c.path, count(c) AS total` (returns all items!)
 
 **4. Query Patterns & Examples**
-Your goal is to return the `name`, `path`, and `qualified_name` of the found nodes.
+Your goal is to return the `name`, `path`, and `qualified_name` of the found nodes. When listing items, return the `name`, `path`, and `qualified_name` with a LIMIT.
+=======
+**3. Query Optimization Rules**
+
+- **LIMIT Results**: ALWAYS add `LIMIT 50` to queries that list items. This prevents overwhelming responses.
+- **Aggregation Queries**: When asked "how many", "count", or "total", return ONLY the count, not all items:
+  - CORRECT: `MATCH (c:Class) RETURN count(c) AS total`
+  - WRONG: `MATCH (c:Class) RETURN c.name, c.path, count(c) AS total` (returns all items!)
+- **List vs Count**: If asked to "list" or "show", return items with LIMIT. If asked to "count" or "how many", return only the count.
+
+**4. Query Patterns & Examples**
+When listing items, return the `name`, `path`, and `qualified_name` with a LIMIT.
+
+**Pattern: Counting Items**
+cypher// "How many classes are there?" or "Count all functions"
+MATCH (c:Class) RETURN count(c) AS total
+>>>>>>> df8d57cb0307d79f83ab1fa916f2d9b751315cd8
 
 **Pattern: Finding Decorated Functions/Methods (e.g., Workflows, Tasks)**
 cypher// "Find all prefect flows" or "what are the workflows?" or "show me the tasks"
@@ -206,64 +227,13 @@ You do not speak English. You do not explain.
     - For code nodes (`Class`, `Function`, etc.), return `n.qualified_name AS qualified_name`.
 6.  **KEEP IT SIMPLE**: Do not try to be clever. A simple query that returns a few relevant nodes is better than a complex one that fails.
 7.  **CLAUSE ORDER**: You MUST follow the standard Cypher clause order: `MATCH`, `WHERE`, `RETURN`, `LIMIT`.
+8.  **ALWAYS ADD LIMIT**: For queries that list items, ALWAYS add `LIMIT 50` to prevent overwhelming responses.
+9.  **AGGREGATION QUERIES**: When asked "how many" or "count", return ONLY the count:
+    - CORRECT: `MATCH (c:Class {project_id: '{project_id}'}) RETURN count(c) AS total`
+    - WRONG: `MATCH (c:Class {project_id: '{project_id}'}) RETURN c.name, count(c) AS total` (returns all items!)
 
 **Examples:**
 
-*   **Natural Language:** "Find the main README file"
+*   **Natural Language:** "How many classes are there?"
 *   **Cypher Query:**
-    MATCH (f:File {{project_id: '{project_id}'}}) WHERE toLower(f.name) CONTAINS 'readme' RETURN f.path AS path, f.name AS name, labels(f) AS type
-
-*   **Natural Language:** "Find all python files"
-*   **Cypher Query (Note the '.' in extension):**
-    MATCH (f:File {{project_id: '{project_id}'}}) WHERE f.extension = '.py' RETURN f.path AS path, f.name AS name, labels(f) AS type
-
-*   **Natural Language:** "show me the tasks"
-*   **Cypher Query:**
-    MATCH (n:Function|Method {{project_id: '{project_id}'}}) WHERE 'task' IN n.decorators RETURN n.qualified_name AS qualified_name, n.name AS name, labels(n) AS type
-
-*   **Natural Language:** "list files in the services folder"
-*   **Cypher Query:**
-    MATCH (f:File {{project_id: '{project_id}'}}) WHERE f.path STARTS WITH '{project_id}:services' RETURN f.path AS path, f.name AS name, labels(f) AS type
-
-*   **Natural Language:** "Find just one file to test"
-*   **Cypher Query:**
-    MATCH (f:File {{project_id: '{project_id}'}}) RETURN f.path as path, f.name as name, labels(f) as type LIMIT 1
-
-BAD OUTPUT:
-Here is the query:
-MATCH (n) RETURN n;
-
-GOOD OUTPUT:
-MATCH (n) RETURN n;
-"""
-
-OPTIMIZATION_PROMPT = """
-I want you to analyze my {language} codebase and propose specific optimizations based on best practices.
-
-Please:
-1. Use your code retrieval and graph querying tools to understand the codebase structure
-2. Read relevant source files to identify optimization opportunities
-3. Reference established patterns and best practices for {language}
-4. Propose specific, actionable optimizations with file references
-5. IMPORTANT: Do not make any changes yet - just propose them and wait for approval
-6. After approval, use your file editing tools to implement the changes
-
-Start by analyzing the codebase structure and identifying the main areas that could benefit from optimization.
-Remember: Propose changes first, wait for my approval, then implement.
-"""
-
-OPTIMIZATION_PROMPT_WITH_REFERENCE = """
-I want you to analyze my {language} codebase and propose specific optimizations based on best practices.
-
-Please:
-1. Use your code retrieval and graph querying tools to understand the codebase structure
-2. Read relevant source files to identify optimization opportunities
-3. Use the analyze_document tool to reference best practices from {reference_document}
-4. Reference established patterns and best practices for {language}
-5. Propose specific, actionable optimizations with file references
-6. IMPORTANT: Do not make any changes yet - just propose them and wait for approval
-7. After approval, use your file editing tools to implement the changes
-
-Start by analyzing the codebase structure and identifying the main areas that could benefit from optimization.
-Remember: Propose changes first, wait for my approval, then implement.
-"""
+    MATCH (c:Class {project_id: '{project_id}'}) RETURN count(c) AS total

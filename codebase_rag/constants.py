@@ -123,6 +123,11 @@ DEFAULT_REGION = "us-central1"
 DEFAULT_MODEL = "llama3.2"
 DEFAULT_API_KEY = "ollama"
 
+ENV_OPENAI_API_KEY = "OPENAI_API_KEY"
+ENV_GOOGLE_API_KEY = "GOOGLE_API_KEY"
+
+HELP_ARG = "help"
+
 
 class GoogleProviderType(StrEnum):
     GLA = "gla"
@@ -157,6 +162,7 @@ KEY_NODE_LABELS = "node_labels"
 KEY_RELATIONSHIP_TYPES = "relationship_types"
 KEY_EXPORTED_AT = "exported_at"
 KEY_PARSER = "parser"
+KEY_NAME = "name"
 KEY_QUALIFIED_NAME = "qualified_name"
 KEY_START_LINE = "start_line"
 KEY_END_LINE = "end_line"
@@ -170,6 +176,8 @@ KEY_CREATED = "created"
 KEY_FROM_VAL = "from_val"
 KEY_TO_VAL = "to_val"
 KEY_VERSION_SPEC = "version_spec"
+KEY_PREFIX = "prefix"
+KEY_PROJECT_NAME = "project_name"
 
 ERR_SUBSTR_ALREADY_EXISTS = "already exists"
 ERR_SUBSTR_CONSTRAINT = "constraint"
@@ -226,6 +234,10 @@ CLI_MSG_HINT_TARGET_REPO = (
     "\nHint: Make sure TARGET_REPO_PATH environment variable is set."
 )
 CLI_MSG_GRAPH_SUMMARY = "Graph Summary:"
+CLI_MSG_AUTO_EXCLUDE = (
+    "Auto-excluding common directories (venv, node_modules, .git, etc.). "
+    "Use --interactive-setup to customize."
+)
 
 UI_DIFF_FILE_HEADER = "[bold cyan]File: {path}[/bold cyan]"
 UI_NEW_FILE_HEADER = "[bold cyan]New file: {path}[/bold cyan]"
@@ -249,6 +261,15 @@ UI_GRAPH_EXPORT_SUCCESS = (
 UI_GRAPH_EXPORT_STATS = "[bold cyan]Export contains {nodes} nodes and {relationships} relationships[/bold cyan]"
 UI_ERR_UNEXPECTED = "[bold red]An unexpected error occurred: {error}[/bold red]"
 UI_ERR_EXPORT_FAILED = "[bold red]Failed to export graph: {error}[/bold red]"
+UI_MODEL_SWITCHED = "[bold green]Model switched to: {model}[/bold green]"
+UI_MODEL_CURRENT = "[bold cyan]Current model: {model}[/bold cyan]"
+UI_MODEL_SWITCH_ERROR = "[bold red]Failed to switch model: {error}[/bold red]"
+UI_MODEL_USAGE = "[bold yellow]Usage: /model <provider:model> (e.g., /model google:gemini-2.0-flash)[/bold yellow]"
+UI_HELP_COMMANDS = """[bold cyan]Available commands:[/bold cyan]
+  /model <provider:model> - Switch to a different model
+  /model                  - Show current model
+  /help                   - Show this help
+  exit, quit              - Exit the session"""
 UI_TOOL_ARGS_FORMAT = "    Arguments: {args}"
 UI_REFERENCE_DOC_INFO = " using the reference document: {reference_document}"
 UI_INPUT_PROMPT_HTML = (
@@ -287,6 +308,12 @@ TRIE_QN_KEY = "__qn__"
 TRIE_INTERNAL_PREFIX = "__"
 
 
+class UniqueKeyType(StrEnum):
+    NAME = KEY_NAME
+    PATH = KEY_PATH
+    QUALIFIED_NAME = KEY_QUALIFIED_NAME
+
+
 class NodeLabel(StrEnum):
     PROJECT = "Project"
     PACKAGE = "Package"
@@ -303,6 +330,32 @@ class NodeLabel(StrEnum):
     MODULE_INTERFACE = "ModuleInterface"
     MODULE_IMPLEMENTATION = "ModuleImplementation"
     EXTERNAL_PACKAGE = "ExternalPackage"
+
+
+_NODE_LABEL_UNIQUE_KEYS: dict[NodeLabel, UniqueKeyType] = {
+    NodeLabel.PROJECT: UniqueKeyType.NAME,
+    NodeLabel.PACKAGE: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.FOLDER: UniqueKeyType.PATH,
+    NodeLabel.FILE: UniqueKeyType.PATH,
+    NodeLabel.MODULE: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.CLASS: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.FUNCTION: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.METHOD: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.INTERFACE: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.ENUM: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.TYPE: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.UNION: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.MODULE_INTERFACE: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.MODULE_IMPLEMENTATION: UniqueKeyType.QUALIFIED_NAME,
+    NodeLabel.EXTERNAL_PACKAGE: UniqueKeyType.NAME,
+}
+
+_missing_keys = set(NodeLabel) - set(_NODE_LABEL_UNIQUE_KEYS.keys())
+if _missing_keys:
+    raise RuntimeError(
+        f"NodeLabel(s) missing from _NODE_LABEL_UNIQUE_KEYS: {_missing_keys}. "
+        "Every NodeLabel MUST have a unique key defined."
+    )
 
 
 class RelationshipType(StrEnum):
@@ -331,7 +384,6 @@ EXCLUDED_DEPENDENCY_NAMES = frozenset({"python", "php"})
 BYTES_PER_MB = 1024 * 1024
 
 # (H) Property keys
-KEY_NAME = "name"
 KEY_PARAMETERS = "parameters"
 KEY_DECORATORS = "decorators"
 KEY_DOCSTRING = "docstring"
@@ -359,6 +411,8 @@ DEPENDENCY_FILES = frozenset(
 CSPROJ_SUFFIX = ".csproj"
 
 # (H) Cypher queries
+CYPHER_DEFAULT_LIMIT = 50
+
 CYPHER_QUERY_EMBEDDINGS = """
 MATCH (m:Module)-[:DEFINES]->(n)
 WHERE n:Function OR n:Method
@@ -548,6 +602,10 @@ IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif")
 # (H) CLI exit commands
 EXIT_COMMANDS = frozenset({"exit", "quit"})
 
+# (H) CLI commands
+MODEL_COMMAND_PREFIX = "/model"
+HELP_COMMAND = "/help"
+
 # (H) UI separators and formatting
 HORIZONTAL_SEPARATOR = "─" * 60
 
@@ -619,6 +677,35 @@ PROMPT_ASK_QUESTION = "Ask a question"
 PROMPT_YOUR_RESPONSE = "Your response"
 MULTILINE_INPUT_HINT = "(Press Ctrl+J to submit, Enter for new line)"
 
+# (H) Interactive setup prompt - grouped view
+INTERACTIVE_TITLE_GROUPED = "Detected Directories (will be excluded unless kept)"
+INTERACTIVE_TITLE_NESTED = "Nested paths in '{pattern}'"
+INTERACTIVE_COL_NUM = "#"
+INTERACTIVE_COL_PATTERN = "Pattern"
+INTERACTIVE_COL_NESTED = "Nested"
+INTERACTIVE_COL_PATH = "Path"
+INTERACTIVE_STYLE_DIM = "dim"
+INTERACTIVE_STATUS_DETECTED = "auto-detected"
+INTERACTIVE_STATUS_CLI = "--exclude"
+INTERACTIVE_STATUS_CGRIGNORE = ".cgrignore"
+INTERACTIVE_NESTED_SINGULAR = "{count} dir"
+INTERACTIVE_NESTED_PLURAL = "{count} dirs"
+INTERACTIVE_INSTRUCTIONS_GROUPED = (
+    "These directories would normally be excluded. "
+    "Options: 'all' (keep all), 'none' (keep none), "
+    "numbers like '1,3' (keep groups), or '1e' to expand group 1"
+)
+INTERACTIVE_INSTRUCTIONS_NESTED = (
+    "Select paths to keep from '{pattern}'. "
+    "Options: 'all', 'none', or numbers like '1,3'"
+)
+INTERACTIVE_PROMPT_KEEP = "Keep"
+INTERACTIVE_KEEP_ALL = "all"
+INTERACTIVE_KEEP_NONE = "none"
+INTERACTIVE_EXPAND_SUFFIX = "e"
+INTERACTIVE_BFS_MAX_DEPTH = 10
+INTERACTIVE_DEFAULT_GROUP = "."
+
 # (H) JSON formatting
 JSON_INDENT = 2
 
@@ -689,26 +776,56 @@ TS_LOCALS_PATTERN = """
 (identifier) @local.reference
 """
 
-# (H) File/directory ignore patterns
+# (H) Patterns to detect at repo root and offer as exclude candidates (user selects which to exclude)
 IGNORE_PATTERNS = frozenset(
     {
-        ".git",
-        "venv",
-        ".venv",
-        "__pycache__",
-        "node_modules",
-        "build",
-        "dist",
-        ".eggs",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
+        ".cache",
         ".claude",
+        ".eclipse",
+        ".eggs",
+        ".env",
+        ".git",
+        ".gradle",
+        ".hg",
         ".idea",
+        ".maven",
+        ".mypy_cache",
+        ".nox",
+        ".npm",
+        ".nyc_output",
+        ".pnpm-store",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".svn",
+        ".tmp",
+        ".tox",
+        ".venv",
+        ".vs",
         ".vscode",
+        ".yarn",
+        "__pycache__",
+        "bin",
+        "bower_components",
+        "build",
+        "coverage",
+        "dist",
+        "env",
+        "htmlcov",
+        "node_modules",
+        "obj",
+        "out",
+        "Pods",
+        "site-packages",
+        "target",
+        "temp",
+        "tmp",
+        "vendor",
+        "venv",
     }
 )
-IGNORE_SUFFIXES = frozenset({".tmp", "~"})
+IGNORE_SUFFIXES = frozenset(
+    {".tmp", "~", ".pyc", ".pyo", ".o", ".a", ".so", ".dll", ".class"}
+)
 
 PAYLOAD_NODE_ID = "node_id"
 PAYLOAD_QUALIFIED_NAME = "qualified_name"
@@ -786,7 +903,7 @@ PYINSTALLER_PACKAGES: list["PyInstallerPackage"] = [
 ]
 
 ALLOWED_COMMENT_MARKERS = frozenset(
-    {"(H)", "type:", "noqa", "pyright", "ty:", "@@protoc"}
+    {"(H)", "type:", "noqa", "pyright", "ty:", "@@protoc", "nosec"}
 )
 QUOTE_CHARS = frozenset({'"', "'"})
 TRIPLE_QUOTES = ('"""', "'''")
@@ -831,15 +948,7 @@ UNIXCODER_MAX_CONTEXT = 1024
 REL_TYPE_CALLS = "CALLS"
 
 NODE_UNIQUE_CONSTRAINTS: dict[str, str] = {
-    "Project": "project_id",
-    "Package": "qualified_name",
-    "Folder": "path",
-    "Module": "qualified_name",
-    "Class": "qualified_name",
-    "Function": "qualified_name",
-    "Method": "qualified_name",
-    "File": "path",
-    "ExternalPackage": "name",
+    label.value: key.value for label, key in _NODE_LABEL_UNIQUE_KEYS.items()
 }
 
 # (H) Cypher response cleaning
@@ -864,6 +973,129 @@ SHELL_CMD_GIT = "git"
 SHELL_CMD_RM = "rm"
 SHELL_RM_RF_FLAG = "-rf"
 SHELL_RETURN_CODE_ERROR = -1
+SHELL_PIPE_OPERATORS = ("|", "&&", "||", ";")
+SHELL_SUBSHELL_PATTERNS = ("$(", "`")
+SHELL_REDIRECT_OPERATORS = frozenset({">", ">>", "<", "<<"})
+
+# (H) Dangerous commands - absolutely blocked
+SHELL_DANGEROUS_COMMANDS = frozenset(
+    {
+        "dd",
+        "mkfs",
+        "mkfs.ext4",
+        "mkfs.ext3",
+        "mkfs.xfs",
+        "mkfs.btrfs",
+        "mkfs.vfat",
+        "fdisk",
+        "parted",
+        "shred",
+        "wipefs",
+        "mkswap",
+        "swapon",
+        "swapoff",
+        "mount",
+        "umount",
+        "insmod",
+        "rmmod",
+        "modprobe",
+        "shutdown",
+        "reboot",
+        "halt",
+        "poweroff",
+        "init",
+        "telinit",
+        "systemctl",
+        "service",
+        "chroot",
+        "nohup",
+        "disown",
+        "crontab",
+        "at",
+        "batch",
+    }
+)
+
+# (H) Dangerous rm flags
+SHELL_RM_DANGEROUS_FLAGS = frozenset({"-rf", "-fr"})
+SHELL_RM_FORCE_FLAG = "-f"
+
+# (H) System directories to protect from rm -rf
+SHELL_SYSTEM_DIRECTORIES = frozenset(
+    {
+        "bin",
+        "boot",
+        "dev",
+        "etc",
+        "home",
+        "lib",
+        "lib64",
+        "media",
+        "mnt",
+        "opt",
+        "proc",
+        "root",
+        "run",
+        "sbin",
+        "srv",
+        "sys",
+        "tmp",
+        "usr",
+        "var",
+    }
+)
+
+# (H) Dangerous patterns for full pipeline (cross-segment patterns with pipes/operators)
+SHELL_DANGEROUS_PATTERNS_PIPELINE = (
+    (r"(wget|curl)\s+.*\|\s*(sh|bash|zsh|ksh)", "remote script execution"),
+    (r"(wget|curl)\s+.*>\s*.*\.sh\s*&&", "download and execute script"),
+    (r"base64\s+-d.*\|", "base64 decode pipe execution"),
+)
+
+# (H) Build system directory regex pattern dynamically
+_SYSTEM_DIRS_PATTERN = "|".join(SHELL_SYSTEM_DIRECTORIES)
+
+# (H) Dangerous patterns for individual segments (per-command patterns)
+SHELL_DANGEROUS_PATTERNS_SEGMENT = (
+    (r"rm\s+.*-[rf]+\s+/($|\s)", "rm with root path"),
+    (rf"rm\s+.*-[rf]+\s+/({_SYSTEM_DIRS_PATTERN})($|/|\s)", "rm with system directory"),
+    (r"rm\s+.*-[rf]+\s+~($|\s)", "rm with home directory"),
+    (r"rm\s+.*-[rf]+\s+\*", "rm with wildcard"),
+    (r"rm\s+.*-[rf]+\s+\.\.", "rm with parent directory"),
+    (r"dd\s+.*of=/dev/", "dd writing to device"),
+    (r">\s*/dev/sd[a-z]", "redirect to disk device"),
+    (r">\s*/dev/nvme", "redirect to nvme device"),
+    (r">\s*/dev/null.*<", "null device manipulation"),
+    (r"chmod\s+.*-R\s+777\s+/", "recursive 777 on root"),
+    (r"chmod\s+.*777\s+/($|\s)", "777 on root"),
+    (r"chown\s+.*-R\s+.*\s+/($|\s)", "recursive chown on root"),
+    (r":\(\)\s*\{.*:\s*\|", "fork bomb pattern"),
+    (r"mv\s+.*\s+/dev/null", "move to /dev/null"),
+    (r"ln\s+-[sf]+\s+/dev/null", "symlink to /dev/null"),
+    (r"cat\s+.*/dev/zero", "cat /dev/zero"),
+    (r"cat\s+.*/dev/random", "cat /dev/random"),
+    (r">\s*/etc/passwd", "overwrite passwd"),
+    (r">\s*/etc/shadow", "overwrite shadow"),
+    (r">\s*/etc/sudoers", "overwrite sudoers"),
+    (r"echo\s+.*>\s*/etc/", "write to /etc"),
+    (
+        r"python.*-c.*(import\s+os|__import__\s*\(\s*['\"]os['\"]\s*\))",
+        "python os import in command",
+    ),
+    (r"perl\s+-e", "perl one-liner"),
+    (r"ruby\s+-e", "ruby one-liner"),
+    (r"nc\s+-[el]", "netcat listener"),
+    (r"ncat\s+-[el]", "ncat listener"),
+    (r"/dev/tcp/", "bash tcp device"),
+    (r"eval\s+", "eval command"),
+    (r"exec\s+[0-9]+<>", "exec file descriptor manipulation"),
+    (r"awk\s+.*system\s*\(", "awk system() call"),
+    (r"awk\s+.*getline\s*[<|]", "awk getline file/pipe execution"),
+    (r"sed\s+.*s(.).*?\1.*?\1[gip]*e[gip]*", "sed execute flag"),
+    (r"xargs\s+.*(rm|chmod|chown|mv|dd|mkfs)", "xargs with destructive command"),
+    (r"xargs\s+-I.*sh", "xargs shell execution"),
+    (r"xargs\s+.*bash", "xargs bash execution"),
+)
 
 # (H) Query tool messages
 QUERY_NOT_AVAILABLE = "N/A"
@@ -1507,6 +1739,7 @@ TS_EXTENDS = "extends"
 TS_ARGUMENTS = "arguments"
 TS_EXTENDS_TYPE_CLAUSE = "extends_type_clause"
 TS_METHOD_DEFINITION = "method_definition"
+TS_DECORATOR = "decorator"
 TS_ERROR = "ERROR"
 TS_EXPRESSION_STATEMENT = "expression_statement"
 TS_STATEMENT_BLOCK = "statement_block"
@@ -1728,6 +1961,7 @@ TS_PACKAGE_DECLARATION = "package_declaration"
 TS_ANNOTATION_TYPE_DECLARATION = "annotation_type_declaration"
 TS_CONSTRUCTOR_DECLARATION = "constructor_declaration"
 TS_ANNOTATION = "annotation"
+TS_MARKER_ANNOTATION = "marker_annotation"
 TS_GENERIC_TYPE = "generic_type"
 TS_TYPE_PARAMETER = "type_parameter"
 TS_MODIFIERS = "modifiers"
@@ -2088,6 +2322,8 @@ TS_RS_USE_DECLARATION = "use_declaration"
 TS_RS_EXTERN_CRATE_DECLARATION = "extern_crate_declaration"
 TS_RS_CALL_EXPRESSION = "call_expression"
 TS_RS_MACRO_INVOCATION = "macro_invocation"
+TS_RS_ATTRIBUTE_ITEM = "attribute_item"
+TS_RS_INNER_ATTRIBUTE_ITEM = "inner_attribute_item"
 
 # (H) Rust identifier tuples
 RS_IDENTIFIER_TYPES = (TS_IDENTIFIER, TS_TYPE_IDENTIFIER)
@@ -2109,6 +2345,9 @@ RS_FIELD_ARGUMENT = "argument"
 
 # (H) MCP tool names
 class MCPToolName(StrEnum):
+    LIST_PROJECTS = "list_projects"
+    DELETE_PROJECT = "delete_project"
+    WIPE_DATABASE = "wipe_database"
     INDEX_REPOSITORY = "index_repository"
     QUERY_CODE_GRAPH = "query_code_graph"
     GET_CODE_SNIPPET = "get_code_snippet"
@@ -2131,6 +2370,7 @@ class MCPSchemaType(StrEnum):
     OBJECT = "object"
     STRING = "string"
     INTEGER = "integer"
+    BOOLEAN = "boolean"
 
 
 # (H) MCP schema fields
@@ -2144,6 +2384,8 @@ class MCPSchemaField(StrEnum):
 
 # (H) MCP parameter names
 class MCPParamName(StrEnum):
+    PROJECT_NAME = "project_name"
+    CONFIRM = "confirm"
     NATURAL_LANGUAGE_QUERY = "natural_language_query"
     QUALIFIED_NAME = "qualified_name"
     FILE_PATH = "file_path"
@@ -2166,10 +2408,15 @@ MCP_PAGINATION_HEADER = "# Lines {start}-{end} of {total}\n"
 
 # (H) MCP response messages
 MCP_INDEX_SUCCESS = "Successfully indexed repository at {path}. Knowledge graph has been updated (previous data cleared)."
+MCP_INDEX_SUCCESS_PROJECT = "Successfully indexed repository at {path}. Project '{project_name}' has been updated."
 MCP_INDEX_ERROR = "Error indexing repository: {error}"
 MCP_WRITE_SUCCESS = "Successfully wrote file: {path}"
 MCP_UNKNOWN_TOOL_ERROR = "Unknown tool: {name}"
 MCP_TOOL_EXEC_ERROR = "Error executing tool '{name}': {error}"
+MCP_PROJECT_DELETED = "Successfully deleted project '{project_name}'."
+MCP_WIPE_CANCELLED = "Database wipe cancelled. Set confirm=true to proceed."
+MCP_WIPE_SUCCESS = "Database completely wiped. All projects have been removed."
+MCP_WIPE_ERROR = "Error wiping database: {error}"
 
 # (H) MCP dict keys and values
 MCP_KEY_RESULTS = "results"

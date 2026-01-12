@@ -6,6 +6,7 @@ from .. import constants as cs
 from .. import logs
 from ..services import IngestorProtocol
 from ..types_defs import LanguageQueries, NodeIdentifier
+from ..utils.path_utils import should_skip_path
 
 
 class StructureProcessor:
@@ -16,6 +17,8 @@ class StructureProcessor:
         project_name: str,
         project_id: str,
         queries: dict[cs.SupportedLanguage, LanguageQueries],
+        unignore_paths: frozenset[str] | None = None,
+        exclude_paths: frozenset[str] | None = None,
     ):
         self.ingestor = ingestor
         self.repo_path = repo_path
@@ -23,7 +26,8 @@ class StructureProcessor:
         self.project_id = project_id
         self.queries = queries
         self.structural_elements: dict[Path, str | None] = {}
-        self.ignore_dirs = cs.IGNORE_PATTERNS
+        self.unignore_paths = unignore_paths
+        self.exclude_paths = exclude_paths
 
     def _get_parent_identifier(
         self, parent_rel_path: Path, parent_container_qn: str | None
@@ -37,9 +41,11 @@ class StructureProcessor:
     def identify_structure(self) -> None:
         directories = {self.repo_path}
         for path in self.repo_path.rglob(cs.GLOB_ALL):
-            if path.is_dir() and not any(
-                part in self.ignore_dirs
-                for part in path.relative_to(self.repo_path).parts
+            if path.is_dir() and not should_skip_path(
+                path,
+                self.repo_path,
+                exclude_paths=self.exclude_paths,
+                unignore_paths=self.unignore_paths,
             ):
                 directories.add(path)
 

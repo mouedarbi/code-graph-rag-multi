@@ -89,6 +89,12 @@ GRAMMAR_LOADED = "Successfully loaded {lang} grammar."
 GRAMMAR_LOAD_FAILED = "Failed to load {lang} grammar: {error}"
 INITIALIZED_PARSERS = "Initialized parsers for: {languages}"
 
+# (H) Ignore pattern logs
+CGRIGNORE_LOADED = (
+    "Loaded {exclude_count} exclude and {unignore_count} unignore patterns from {path}"
+)
+CGRIGNORE_READ_FAILED = "Failed to read {path}: {error}"
+
 # (H) File watcher logs
 WATCHER_ACTIVE = "File watcher is now active."
 WATCHER_SKIP_NO_QUERY = "Ingestor does not support querying, skipping real-time update."
@@ -158,6 +164,8 @@ MG_BATCH_ERROR = "!!! Batch Cypher Error: {error}"
 MG_BATCH_PARAMS_TRUNCATED = "    Params (first 10 of {count}): {params}..."
 MG_CLEANING_DB = "--- Cleaning database... ---"
 MG_DB_CLEANED = "--- Database cleaned. ---"
+MG_DELETING_PROJECT = "--- Deleting project: {project_name} ---"
+MG_PROJECT_DELETED = "--- Project {project_name} deleted. ---"
 MG_ENSURING_CONSTRAINTS = "Ensuring constraints..."
 MG_CONSTRAINTS_DONE = "Constraints checked/created."
 MG_NODE_BUFFER_FLUSH = (
@@ -562,7 +570,14 @@ JS_ES6_EXPORTS_DETECT_FAILED = "Failed to detect ES6 exports: {error}"
 MCP_INDEXING_REPO = "[MCP] Indexing repository at: {path}"
 MCP_CLEARING_DB = "[MCP] Clearing existing database to avoid conflicts..."
 MCP_DB_CLEARED = "[MCP] Database cleared. Starting fresh indexing..."
+MCP_CLEARING_PROJECT = "[MCP] Clearing existing data for project '{project_name}'..."
 MCP_ERROR_INDEXING = "[MCP] Error indexing repository: {error}"
+MCP_LISTING_PROJECTS = "[MCP] Listing all projects..."
+MCP_ERROR_LIST_PROJECTS = "[MCP] Error listing projects: {error}"
+MCP_DELETING_PROJECT = "[MCP] Deleting project: {project_name}"
+MCP_ERROR_DELETE_PROJECT = "[MCP] Error deleting project: {error}"
+MCP_WIPING_DATABASE = "[MCP] Wiping entire database!"
+MCP_ERROR_WIPE = "[MCP] Error wiping database: {error}"
 MCP_QUERY_CODE_GRAPH = "[MCP] query_code_graph: {query}"
 MCP_QUERY_RESULTS = "[MCP] Query returned {count} results"
 MCP_ERROR_QUERY = "[MCP] Error querying code graph: {error}"
@@ -595,3 +610,12 @@ MCP_SERVER_CREATED = "[GraphCode MCP] Server created, starting stdio transport..
 MCP_SERVER_CONNECTED = "[GraphCode MCP] Connected to Memgraph at {host}:{port}"
 MCP_SERVER_FATAL_ERROR = "[GraphCode MCP] Fatal error: {error}"
 MCP_SERVER_SHUTDOWN = "[GraphCode MCP] Shutting down server..."
+
+# (H) Exclude prompt logs
+EXCLUDE_INVALID_INDEX = "Invalid index: {index} (out of range)"
+EXCLUDE_INVALID_INPUT = "Invalid input: '{input}' (expected number)"
+
+# (H) Model switching logs
+MODEL_SWITCHED = "Model switched to: {model}"
+MODEL_SWITCH_FAILED = "Failed to switch model: {error}"
+MODEL_CURRENT = "Current model: {model}"
