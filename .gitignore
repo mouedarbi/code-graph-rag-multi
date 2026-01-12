@@ -23,3 +23,8 @@ PROJECT.md
 .envrc
 .DS_Store
 .pypi_cache.json
+
+# Test files
+codebase_rag/tests/
+*.log
+
